@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Optional
 from pathlib import Path
+import json
 from tqdm import tqdm
 
 from src.embeddings.models import get_embedding_model
@@ -118,38 +119,88 @@ class ContrastiveLoss(nn.Module):
         return loss
 
 
-def train_embedding_model(
-    dataloader,
-    num_epochs=10,
-    embedding_dim=64,
-    learning_rate=0.001,
-    device="cuda",
-):
+def load_training_config(config_path: Optional[str] = None) -> dict:
+    """Load training configuration from a JSON file.
+
+    Args:
+        config_path: Path to the JSON config file. If None, uses default config.
+
+    Returns:
+        Dictionary containing training configuration.
+    """
+    default_config_path = Path(__file__).parent / "config.json"
+
+    # Load default config first
+    try:
+        with open(default_config_path, "r") as f:
+            config = json.load(f)
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            f"Default config file not found at {default_config_path}"
+        )
+
+    # If custom config provided, update default config with custom values
+    if config_path is not None:
+        try:
+            with open(config_path, "r") as f:
+                custom_config = json.load(f)
+                config.update(custom_config)
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Custom config file not found at {config_path}")
+
+    return config
+
+
+def train_embedding_model(dataloader, config_path: Optional[str] = None):
     """Train the embedding model using contrastive pairs.
 
     Args:
         dataloader: DataLoader instance
-        num_epochs: Number of training epochs
-        embedding_dim: Dimension of the embedding space
-        learning_rate: Learning rate for optimization
-        device: Device to run the training on
+        config_path: Path to JSON config file containing training parameters.
+                    If None, uses default config file.
+                    The JSON file should contain the following keys:
+                    - num_epochs: Number of training epochs
+                    - embedding_dim: Dimension of the embedding space
+                    - learning_rate: Learning rate for optimization
+                    - device: Device to run the training on
+                    - model_type: Type of embedding model to use
+                    - contrastive_loss_temp: Temperature for contrastive loss
+                    - contrastive_loss_similarity: Similarity metric for contrastive loss
+                    - contrastive_loss_reduction: Reduction method for contrastive loss
     """
-    # Initialize model and move to device
-    model = get_embedding_model(model_type="cnn", embedding_dim=embedding_dim)
-    model = model.to(device)
-    criterion = ContrastiveLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+    # Load configuration from JSON file
+    training_config = load_training_config(config_path)
 
-    print(f"Starting training for {num_epochs} epochs...")
-    for epoch in range(num_epochs):
+    # Initialize model and move to device
+    model = get_embedding_model(
+        model_type=training_config["model_type"],
+        embedding_dim=training_config["embedding_dim"],
+    )
+    model = model.to(training_config["device"])
+
+    criterion = ContrastiveLoss(
+        temperature=training_config["contrastive_loss_temp"],
+        similarity=training_config["contrastive_loss_similarity"],
+        reduction=training_config["contrastive_loss_reduction"],
+    )
+
+    optimizer = torch.optim.Adam(
+        model.parameters(), lr=training_config["learning_rate"]
+    )
+
+    print(f"Starting training for {training_config['num_epochs']} epochs...")
+    for epoch in range(training_config["num_epochs"]):
         model.train()
         total_loss = 0
-        progress_bar = tqdm(dataloader, desc=f"Epoch {epoch+1}/{num_epochs}")
+        progress_bar = tqdm(
+            dataloader, desc=f"Epoch {epoch+1}/{training_config['num_epochs']}"
+        )
 
         for img1, img2, labels in progress_bar:
             # Move data to device
-            img1, img2 = img1.to(device), img2.to(device)
-            labels = labels.to(device)
+            img1 = img1.to(training_config["device"])
+            img2 = img2.to(training_config["device"])
+            labels = labels.to(training_config["device"])
 
             # Forward pass
             embedding1 = model(img1)
@@ -165,7 +216,9 @@ def train_embedding_model(
             progress_bar.set_postfix({"loss": f"{loss.item():.4f}"})
 
         avg_loss = total_loss / len(dataloader)
-        print(f"Epoch {epoch+1}/{num_epochs}, Average Loss: {avg_loss:.4f}")
+        print(
+            f"Epoch {epoch+1}/{training_config['num_epochs']}, Average Loss: {avg_loss:.4f}"
+        )
 
     # Save the trained model
     save_dir = Path("models")

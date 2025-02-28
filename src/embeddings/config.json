@@ -1,0 +1,10 @@
+{
+    "num_epochs": 10,
+    "embedding_dim": 64,
+    "learning_rate": 0.001,
+    "device": "cuda",
+    "model_type": "cnn",
+    "contrastive_loss_temp": 0.07,
+    "contrastive_loss_similarity": "cosine",
+    "contrastive_loss_reduction": "mean"
+}
