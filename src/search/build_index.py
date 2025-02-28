@@ -10,8 +10,6 @@ from src.embeddings.models import get_embedding_model
 from src.data.mnist_loader import setup_mnist_database
 from src.data.models import Image
 
-# from src.data.models import Image
-
 
 def generate_embeddings(model, db, device="cuda"):
     """Generate embeddings for all images in the database."""

@@ -1,13 +1,13 @@
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
-from PIL import Image
-import numpy as np
+from PIL import Image as PILImage
 from pathlib import Path
 from tqdm import tqdm
 
 from src.embeddings.models import get_embedding_model, ContrastiveLoss
 from src.data.mnist_loader import setup_mnist_database, generate_contrastive_pairs
+from src.data.models import Image
 
 
 class ContrastivePairDataset(Dataset):
@@ -36,8 +36,8 @@ class ContrastivePairDataset(Dataset):
         img2 = self.db.query(Image).filter(Image.image_id == pair[1]).first()
 
         # Load and transform images
-        img1 = Image.open(img1.file_path)
-        img2 = Image.open(img2.file_path)
+        img1 = PILImage.open(img1.file_path)
+        img2 = PILImage.open(img2.file_path)
         img1 = self.transform(img1)
         img2 = self.transform(img2)
 
