@@ -6,7 +6,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from src.data.models import Image, User, Base
 from src.data.utils import save_sample_pairs
-import matplotlib.pyplot as plt
 
 
 def setup_mnist_database(db_url: str = "sqlite:///mnist.db"):
