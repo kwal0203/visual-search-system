@@ -44,7 +44,10 @@ def display_search_results(query_image_path, similar_images, num_results=5):
 def get_dataloader(db, mnist_user):
     load_mnist(db, mnist_user)
     pairs, labels = generate_contrastive_pairs(
-        db, num_pairs=10000, same_digit_ratio=0.5
+        # db, num_pairs=10000, same_digit_ratio=0.5
+        db,
+        num_pairs=1000,
+        same_digit_ratio=0.5,
     )
     dataset = ContrastivePairDataset(pairs, labels, db)
     dataloader = DataLoader(dataset, batch_size=64, shuffle=True, num_workers=2)

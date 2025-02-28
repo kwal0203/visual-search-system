@@ -23,16 +23,22 @@ class ContrastiveLoss(nn.Module):
         self.reduction = reduction
 
     def forward(
-        self, embeddings: torch.Tensor, labels: Optional[torch.Tensor] = None
+        self,
+        embedding1: torch.Tensor,
+        embedding2: torch.Tensor,
+        labels: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """
-        Compute contrastive loss.
+        Compute contrastive loss between pairs of embeddings.
 
         Args:
-            embeddings: Tensor of shape (batch_size, embedding_dim)
+            embedding1: First set of embeddings of shape (batch_size, embedding_dim)
+            embedding2: Second set of embeddings of shape (batch_size, embedding_dim)
             labels: Optional tensor of shape (batch_size,) for supervised contrastive loss
         """
-        batch_size = embeddings.shape[0]
+        # Concatenate embeddings for combined processing
+        embeddings = torch.cat([embedding1, embedding2], dim=0)
+        batch_size = embedding1.shape[0]
 
         # Normalize embeddings
         embeddings = F.normalize(embeddings, p=2, dim=1)
@@ -50,12 +56,12 @@ class ContrastiveLoss(nn.Module):
         if labels is None:
             labels = torch.arange(batch_size, device=embeddings.device)
 
+        # Extend labels to match concatenated embeddings
+        labels = torch.cat([labels, labels])
+
         # Create positive mask
         positive_mask = labels.unsqueeze(0) == labels.unsqueeze(1)
         positive_mask.fill_diagonal_(False)
-
-        # Create negative mask
-        negative_mask = ~positive_mask
 
         # Compute log probabilities
         exp_sim = torch.exp(similarity_matrix)
