@@ -13,8 +13,8 @@ from src.embeddings.train import train_embedding_model
 from src.search.build_index import (
     generate_embeddings,
     build_search_index,
-    search_similar_images,
 )
+from src.search.search import search_similar_images
 from torch.utils.data import DataLoader
 
 
