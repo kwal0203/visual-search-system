@@ -1,10 +1,11 @@
 from pathlib import Path
 from torchvision import datasets, transforms
-from PIL import Image
+from PIL import Image as PILImage
 import numpy as np
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from src.data.models import Image, User, Base
+import matplotlib.pyplot as plt
 
 
 def setup_mnist_database(db_url: str = "sqlite:///mnist.db"):
@@ -119,6 +120,47 @@ def generate_contrastive_pairs(db, num_pairs=10000, same_digit_ratio=0.5):
             labels.append(0)
 
     print("100% - Pair generation complete!")
+
+    # Visualize some random pairs
+    def display_pair(img1_path, img2_path, is_same, ax):
+        img1 = PILImage.open(img1_path)
+        img2 = PILImage.open(img2_path)
+
+        # Create a figure with two subplots side by side
+        ax[0].imshow(img1, cmap="gray")
+        ax[0].axis("off")
+        ax[1].imshow(img2, cmap="gray")
+        ax[1].axis("off")
+        pair_type = "Same Digit" if is_same else "Different Digits"
+        ax[0].set_title(f"{pair_type} Pair")
+
+    # Create a figure with subplots for positive and negative pairs
+    fig, axes = plt.subplots(4, 2, figsize=(8, 12))
+    plt.suptitle("Sample Contrastive Pairs", fontsize=14)
+
+    # Show 2 positive and 2 negative pairs
+    pos_pairs = [(p, l) for p, l in zip(pairs, labels) if l == 1]
+    neg_pairs = [(p, l) for p, l in zip(pairs, labels) if l == 0]
+
+    # Display 2 positive pairs
+    for i in range(2):
+        if pos_pairs:
+            pair, _ = pos_pairs[i]
+            img1 = db.query(Image).filter(Image.image_id == pair[0]).first()
+            img2 = db.query(Image).filter(Image.image_id == pair[1]).first()
+            display_pair(img1.file_path, img2.file_path, True, axes[i])
+
+    # Display 2 negative pairs
+    for i in range(2):
+        if neg_pairs:
+            pair, _ = neg_pairs[i]
+            img1 = db.query(Image).filter(Image.image_id == pair[0]).first()
+            img2 = db.query(Image).filter(Image.image_id == pair[1]).first()
+            display_pair(img1.file_path, img2.file_path, False, axes[i + 2])
+
+    plt.tight_layout()
+    plt.show()
+
     return pairs, labels
 
 
