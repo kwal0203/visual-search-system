@@ -1,8 +1,80 @@
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from typing import Optional
 from pathlib import Path
 from tqdm import tqdm
 
-from src.embeddings.models import get_embedding_model, ContrastiveLoss
+from src.embeddings.models import get_embedding_model
+
+
+class ContrastiveLoss(nn.Module):
+    """Contrastive loss with support for different similarity metrics."""
+
+    def __init__(
+        self,
+        temperature: float = 0.07,
+        similarity: str = "cosine",
+        reduction: str = "mean",
+    ):
+        super().__init__()
+        self.temperature = temperature
+        self.similarity = similarity
+        self.reduction = reduction
+
+    def forward(
+        self, embeddings: torch.Tensor, labels: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        """
+        Compute contrastive loss.
+
+        Args:
+            embeddings: Tensor of shape (batch_size, embedding_dim)
+            labels: Optional tensor of shape (batch_size,) for supervised contrastive loss
+        """
+        batch_size = embeddings.shape[0]
+
+        # Normalize embeddings
+        embeddings = F.normalize(embeddings, p=2, dim=1)
+
+        # Compute similarity matrix
+        if self.similarity == "cosine":
+            similarity_matrix = torch.matmul(embeddings, embeddings.T)
+        else:
+            raise ValueError(f"Unknown similarity metric: {self.similarity}")
+
+        # Scale similarities
+        similarity_matrix = similarity_matrix / self.temperature
+
+        # Create labels if not provided (self-supervised case)
+        if labels is None:
+            labels = torch.arange(batch_size, device=embeddings.device)
+
+        # Create positive mask
+        positive_mask = labels.unsqueeze(0) == labels.unsqueeze(1)
+        positive_mask.fill_diagonal_(False)
+
+        # Create negative mask
+        negative_mask = ~positive_mask
+
+        # Compute log probabilities
+        exp_sim = torch.exp(similarity_matrix)
+        log_prob = similarity_matrix - torch.log(exp_sim.sum(dim=1, keepdim=True))
+
+        # Compute mean of positive similarities
+        mean_log_prob_pos = (positive_mask * log_prob).sum(dim=1) / positive_mask.sum(
+            dim=1
+        ).clamp(min=1)
+
+        # Compute loss
+        loss = -mean_log_prob_pos
+
+        if self.reduction == "mean":
+            loss = loss.mean()
+        elif self.reduction == "sum":
+            loss = loss.sum()
+
+        return loss
 
 
 def train_embedding_model(
