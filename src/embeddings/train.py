@@ -67,31 +67,59 @@ class ContrastiveLoss(nn.Module):
         embeddings = torch.cat([embedding1, embedding2], dim=0)
         batch_size = embedding1.shape[0]
 
+        # Print raw embedding properties
+        print(f"Raw embedding shape: {embeddings.shape}")
+        print(f"First few raw embedding values:\n{embeddings[0, :5]}")
+
         # Check for NaN or Inf values before normalization
         if torch.isnan(embeddings).any():
             print("WARNING: NaN values detected in embeddings before normalization")
         if torch.isinf(embeddings).any():
             print("WARNING: Inf values detected in embeddings before normalization")
 
+        # Compute and print L2 norms before normalization
+        pre_norm = torch.norm(embeddings, p=2, dim=1)
+        print(
+            f"L2 norms before normalization - min: {pre_norm.min():.4f}, max: {pre_norm.max():.4f}, mean: {pre_norm.mean():.4f}"
+        )
+
         # Normalize embeddings
         embeddings = F.normalize(embeddings, p=2, dim=1)
         print(
             f"Normalized embeddings stats - min: {embeddings.min():.4f}, max: {embeddings.max():.4f}, mean: {embeddings.mean():.4f}"
         )
+        print(f"First few normalized embedding values:\n{embeddings[0, :5]}")
 
         # Verify normalization worked correctly
         norms = torch.norm(embeddings, p=2, dim=1)
         print(
-            f"Embedding norms after normalization - min: {norms.min():.4f}, max: {norms.max():.4f}, mean: {norms.mean():.4f}"
+            f"L2 norms after normalization - min: {norms.min():.4f}, max: {norms.max():.4f}, mean: {norms.mean():.4f}"
         )
 
         # Compute similarity matrix with extra checks
         if self.similarity == "cosine":
-            # Ensure embeddings are properly normalized
-            embeddings = F.normalize(
-                embeddings, p=2, dim=1
-            )  # Double-check normalization
-            similarity_matrix = torch.matmul(embeddings, embeddings.T)
+            # Split embeddings back to compute pairwise similarities
+            emb1 = embeddings[:batch_size]
+            emb2 = embeddings[batch_size:]
+
+            # Compute similarities between all pairs
+            similarity_matrix = torch.zeros(
+                (2 * batch_size, 2 * batch_size), device=embeddings.device
+            )
+
+            # Fill in the quadrants
+            similarity_matrix[:batch_size, :batch_size] = torch.matmul(
+                emb1, emb1.T
+            )  # emb1 with emb1
+            similarity_matrix[batch_size:, batch_size:] = torch.matmul(
+                emb2, emb2.T
+            )  # emb2 with emb2
+            similarity_matrix[:batch_size, batch_size:] = torch.matmul(
+                emb1, emb2.T
+            )  # emb1 with emb2
+            similarity_matrix[batch_size:, :batch_size] = torch.matmul(
+                emb2, emb1.T
+            )  # emb2 with emb1
 
             # Numerical stability: clip values to [-1, 1] range
             similarity_matrix = torch.clamp(similarity_matrix, min=-1.0, max=1.0)
@@ -99,11 +127,21 @@ class ContrastiveLoss(nn.Module):
             print(
                 f"Similarity matrix stats - min: {similarity_matrix.min():.4f}, max: {similarity_matrix.max():.4f}, mean: {similarity_matrix.mean():.4f}"
             )
+            print(f"First few similarity rows:\n{similarity_matrix[0, :5]}")
 
             # Print diagonal values to verify self-similarity
             diag_sim = torch.diagonal(similarity_matrix)
             print(
                 f"Diagonal similarity stats - min: {diag_sim.min():.4f}, max: {diag_sim.max():.4f}, mean: {diag_sim.mean():.4f}"
+            )
+
+            # Print off-diagonal values to verify different embeddings have different similarities
+            off_diag_mask = ~torch.eye(
+                similarity_matrix.shape[0], dtype=bool, device=similarity_matrix.device
+            )
+            off_diag_sim = similarity_matrix[off_diag_mask]
+            print(
+                f"Off-diagonal similarity stats - min: {off_diag_sim.min():.4f}, max: {off_diag_sim.max():.4f}, mean: {off_diag_sim.mean():.4f}"
             )
         else:
             raise ValueError(f"Unknown similarity metric: {self.similarity}")
