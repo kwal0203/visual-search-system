@@ -67,8 +67,11 @@ class ContrastiveLoss(nn.Module):
         embeddings = torch.cat([embedding1, embedding2], dim=0)
         batch_size = embedding1.shape[0]
 
-        if self.debug:
-            print(f"Shape of concatenated embeddings: {embeddings.shape}")
+        # Check for NaN or Inf values before normalization
+        if torch.isnan(embeddings).any():
+            print("WARNING: NaN values detected in embeddings before normalization")
+        if torch.isinf(embeddings).any():
+            print("WARNING: Inf values detected in embeddings before normalization")
 
         # Normalize embeddings
         embeddings = F.normalize(embeddings, p=2, dim=1)
@@ -76,11 +79,31 @@ class ContrastiveLoss(nn.Module):
             f"Normalized embeddings stats - min: {embeddings.min():.4f}, max: {embeddings.max():.4f}, mean: {embeddings.mean():.4f}"
         )
 
-        # Compute similarity matrix
+        # Verify normalization worked correctly
+        norms = torch.norm(embeddings, p=2, dim=1)
+        print(
+            f"Embedding norms after normalization - min: {norms.min():.4f}, max: {norms.max():.4f}, mean: {norms.mean():.4f}"
+        )
+
+        # Compute similarity matrix with extra checks
         if self.similarity == "cosine":
+            # Ensure embeddings are properly normalized
+            embeddings = F.normalize(
+                embeddings, p=2, dim=1
+            )  # Double-check normalization
             similarity_matrix = torch.matmul(embeddings, embeddings.T)
+
+            # Numerical stability: clip values to [-1, 1] range
+            similarity_matrix = torch.clamp(similarity_matrix, min=-1.0, max=1.0)
+
             print(
                 f"Similarity matrix stats - min: {similarity_matrix.min():.4f}, max: {similarity_matrix.max():.4f}, mean: {similarity_matrix.mean():.4f}"
+            )
+
+            # Print diagonal values to verify self-similarity
+            diag_sim = torch.diagonal(similarity_matrix)
+            print(
+                f"Diagonal similarity stats - min: {diag_sim.min():.4f}, max: {diag_sim.max():.4f}, mean: {diag_sim.mean():.4f}"
             )
         else:
             raise ValueError(f"Unknown similarity metric: {self.similarity}")
@@ -88,8 +111,15 @@ class ContrastiveLoss(nn.Module):
         if self.debug:
             print(f"Shape of similarity matrix: {similarity_matrix.shape}")
 
-        # Scale similarities
+        # Scale similarities with numerical stability checks
         similarity_matrix = similarity_matrix / self.temperature
+
+        # Prevent extremely large values after temperature scaling
+        max_val = torch.max(similarity_matrix)
+        similarity_matrix = (
+            similarity_matrix - max_val
+        )  # Subtract maximum for numerical stability
+
         print(
             f"Scaled similarity matrix stats - min: {similarity_matrix.min():.4f}, max: {similarity_matrix.max():.4f}, mean: {similarity_matrix.mean():.4f}"
         )
@@ -113,13 +143,15 @@ class ContrastiveLoss(nn.Module):
             f"Number of positive pairs (excluding diagonal): {positive_mask.sum().item()}"
         )
 
-        # Compute log probabilities
+        # Compute log probabilities with numerical stability
         exp_sim = torch.exp(similarity_matrix)
+        # Add small epsilon to prevent log(0)
+        denominator = torch.log(exp_sim.sum(dim=1, keepdim=True) + 1e-6)
+        log_prob = similarity_matrix - denominator
+
         print(
             f"Exp similarities stats - min: {exp_sim.min():.4f}, max: {exp_sim.max():.4f}, mean: {exp_sim.mean():.4f}"
         )
-
-        log_prob = similarity_matrix - torch.log(exp_sim.sum(dim=1, keepdim=True))
         print(
             f"Log prob stats - min: {log_prob.min():.4f}, max: {log_prob.max():.4f}, mean: {log_prob.mean():.4f}"
         )
