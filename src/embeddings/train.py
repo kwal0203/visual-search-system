@@ -127,6 +127,15 @@ class ContrastiveLoss(nn.Module):
             print(
                 f"Similarity matrix stats - min: {similarity_matrix.min():.4f}, max: {similarity_matrix.max():.4f}, mean: {similarity_matrix.mean():.4f}"
             )
+
+            # Analyze similarity distribution
+            sim_hist = torch.histc(similarity_matrix, bins=10, min=-1.0, max=1.0)
+            print("\nSimilarity Distribution (10 bins from -1 to 1):")
+            for i, count in enumerate(sim_hist):
+                bin_start = -1.0 + i * 0.2
+                bin_end = bin_start + 0.2
+                print(f"  {bin_start:.1f} to {bin_end:.1f}: {count.item():.0f} pairs")
+
             print(f"First few similarity rows:\n{similarity_matrix[0, :5]}")
 
             # Print diagonal values to verify self-similarity
