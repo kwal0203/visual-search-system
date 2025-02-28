@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple, Union
+from typing import List, Tuple, Union
 
-import numpy as np
 import torch
 import torchvision.transforms as T
 from PIL import Image
