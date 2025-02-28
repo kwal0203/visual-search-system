@@ -287,6 +287,10 @@ def train_embedding_model(dataloader, config_path: Optional[str] = None):
         )
 
         for img1, img2, labels in progress_bar:
+            print(f"  -- SHAPE img1: {img1.shape}")
+            print(f"  -- SHAPE img2: {img2.shape}")
+            print(f"  -- SHAPE labels: {labels.shape}")
+
             # Move data to device
             img1 = img1.to(training_config["device"])
             img2 = img2.to(training_config["device"])

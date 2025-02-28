@@ -73,11 +73,35 @@ class CNNEmbedding(EmbeddingModel):
         return x
 
 
+class CNNEmbeddingFromChatGPT(nn.Module):
+    """Improved CNN for contrastive learning with normalized embeddings."""
+
+    def __init__(self, embedding_dim: int = 64):
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=5)
+        self.bn1 = nn.BatchNorm2d(32)  # BatchNorm after Conv1
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=5)
+        self.bn2 = nn.BatchNorm2d(64)  # BatchNorm after Conv2
+
+        self.fc1 = nn.Linear(64 * 4 * 4, 256)
+        self.bn3 = nn.BatchNorm1d(256)  # BatchNorm for FC layer
+        self.fc2 = nn.Linear(256, embedding_dim)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = F.leaky_relu(self.bn1(F.max_pool2d(self.conv1(x), 2)))
+        x = F.leaky_relu(self.bn2(F.max_pool2d(self.conv2(x), 2)))
+        x = x.view(-1, 64 * 4 * 4)
+        x = F.leaky_relu(self.bn3(self.fc1(x)))
+        x = self.fc2(x)
+        return x  # Normalized in loss function
+
+
 def get_embedding_model(model_type: str = "resnet", **kwargs) -> EmbeddingModel:
     """Factory function to create embedding models."""
     models = {
         "resnet": ResNetEmbedding,
         "cnn": CNNEmbedding,
+        "cnn_chatgpt": CNNEmbeddingFromChatGPT,
     }
 
     if model_type not in models:
