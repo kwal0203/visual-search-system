@@ -3,6 +3,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from PIL import Image as PILImage
 import os
+import re
 from src.data.models import Image as DBImage
 from src.data.mnist_loader import (
     setup_mnist_database,
@@ -71,6 +72,7 @@ def main():
     if not model_path.exists():
         print("Training embedding model...")
         config_path = WORKSPACE_ROOT / "src" / "embeddings" / "config.json"
+        config_path = re.sub(r"/vss\.src/", "/vss/src/", config_path)
         print(f"Using config from: {config_path}")
         model = train_embedding_model(
             dataloader=dataloader,
