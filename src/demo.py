@@ -17,6 +17,9 @@ from src.search.build_index import (
 from src.search.search import search_similar_images
 from torch.utils.data import DataLoader
 
+# Get the project root directory
+PROJECT_ROOT = Path(__file__).parent.parent
+
 
 def display_search_results(query_image_path, similar_images, num_results=5):
     """Display query image and its similar images."""
@@ -68,7 +71,7 @@ def main():
         print("Training embedding model...")
         model = train_embedding_model(
             dataloader=dataloader,
-            config_path="src/embeddings/config.json",
+            config_path=str(PROJECT_ROOT / "src/embeddings/config.json"),
         )
     else:
         print("Loading existing model...")
