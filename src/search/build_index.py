@@ -7,7 +7,7 @@ from PIL import Image
 import torch.nn.functional as F
 from torchvision import transforms
 
-from src.models.embedding_model import EmbeddingNet
+from src.embeddings.models import get_embedding_model
 from src.data.mnist_loader import setup_mnist_database
 
 
@@ -63,7 +63,7 @@ def load_search_system(
 ):
     """Load the trained model and search index."""
     # Load model
-    model = EmbeddingNet()
+    model = get_embedding_model(model_type="cnn")
     model.load_state_dict(torch.load(model_path))
     model = model.to(device)
     model.eval()
@@ -119,7 +119,7 @@ if __name__ == "__main__":
     db, _ = setup_mnist_database()
 
     # Load model
-    model = EmbeddingNet()
+    model = get_embedding_model(model_type="cnn")
     model.load_state_dict(torch.load("models/embedding_model.pth"))
     model = model.to(device)
 

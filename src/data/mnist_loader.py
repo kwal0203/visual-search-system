@@ -75,7 +75,7 @@ def load_mnist(db, mnist_user, save_dir: str = "data/mnist"):
     process_dataset(test_dataset, "test")
     db.commit()
 
-    return "MNIST dataset loaded successfully"
+    print("MNIST dataset loaded successfully")
 
 
 def generate_contrastive_pairs(db, num_pairs=10000, same_digit_ratio=0.5):

@@ -6,7 +6,7 @@ import numpy as np
 from pathlib import Path
 from tqdm import tqdm
 
-from src.models.embedding_model import EmbeddingNet, ContrastiveLoss
+from src.embeddings.models import get_embedding_model, ContrastiveLoss
 from src.data.mnist_loader import setup_mnist_database, generate_contrastive_pairs
 
 
@@ -45,23 +45,23 @@ class ContrastivePairDataset(Dataset):
 
 
 def train_embedding_model(
-    db,
+    dataloader,
     num_epochs=10,
-    batch_size=64,
     embedding_dim=64,
     learning_rate=0.001,
     device="cuda",
 ):
-    """Train the embedding model using contrastive pairs."""
-    print("Generating contrastive pairs for training...")
-    pairs, labels = generate_contrastive_pairs(db, num_pairs=50000)
+    """Train the embedding model using contrastive pairs.
 
-    # Create dataset and dataloader
-    dataset = ContrastivePairDataset(pairs, labels, db)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=4)
-
+    Args:
+        dataloader: DataLoader instance
+        num_epochs: Number of training epochs
+        embedding_dim: Dimension of the embedding space
+        learning_rate: Learning rate for optimization
+        device: Device to run the training on
+    """
     # Initialize model and move to device
-    model = EmbeddingNet(embedding_dim=embedding_dim)
+    model = get_embedding_model(model_type="cnn", embedding_dim=embedding_dim)
     model = model.to(device)
     criterion = ContrastiveLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
@@ -107,4 +107,18 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
 
     db, _ = setup_mnist_database()
-    model = train_embedding_model(db, device=device)
+
+    # Generate pairs and create dataset/dataloader
+    print("Generating contrastive pairs for training...")
+    pairs, labels = generate_contrastive_pairs(db, num_pairs=50000)
+    dataset = ContrastivePairDataset(pairs, labels, db)
+    dataloader = DataLoader(dataset, batch_size=64, shuffle=True, num_workers=4)
+
+    model = train_embedding_model(
+        db=db,
+        pairs=pairs,
+        labels=labels,
+        dataset=dataset,
+        dataloader=dataloader,
+        device=device,
+    )

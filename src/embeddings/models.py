@@ -54,6 +54,26 @@ class ResNetEmbedding(EmbeddingModel):
         return self.backbone(x)
 
 
+class CNNEmbedding(EmbeddingModel):
+    """Simple CNN for learning digit embeddings (MNIST-specific)."""
+
+    def __init__(self, embedding_dim: int = 64):
+        super().__init__(embedding_dim)
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=5)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=5)
+        self.fc1 = nn.Linear(64 * 4 * 4, 256)
+        self.fc2 = nn.Linear(256, embedding_dim)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Input shape: [batch_size, 1, 28, 28]
+        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        x = F.relu(F.max_pool2d(self.conv2(x), 2))
+        x = x.view(-1, 64 * 4 * 4)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
+
+
 class ContrastiveLoss(nn.Module):
     """Contrastive loss with support for different similarity metrics."""
 
@@ -127,6 +147,7 @@ def get_embedding_model(model_type: str = "resnet", **kwargs) -> EmbeddingModel:
     """Factory function to create embedding models."""
     models = {
         "resnet": ResNetEmbedding,
+        "cnn": CNNEmbedding,
     }
 
     if model_type not in models:

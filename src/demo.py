@@ -3,13 +3,21 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from PIL import Image
 
-from src.data.mnist_loader import setup_mnist_database
-from src.training.train_embeddings import train_embedding_model
+from src.data.mnist_loader import (
+    setup_mnist_database,
+    load_mnist,
+    generate_contrastive_pairs,
+)
+from src.training.train_embeddings import (
+    train_embedding_model,
+    ContrastivePairDataset,
+)
 from src.search.build_index import (
     generate_embeddings,
     build_search_index,
     search_similar_images,
 )
+from torch.utils.data import DataLoader
 
 
 def display_search_results(query_image_path, similar_images, num_results=5):
@@ -35,18 +43,32 @@ def display_search_results(query_image_path, similar_images, num_results=5):
     plt.show()
 
 
+def get_dataloader(db, mnist_user):
+    load_mnist(db, mnist_user)
+    pairs, labels = generate_contrastive_pairs(
+        db, num_pairs=10000, same_digit_ratio=0.5
+    )
+    dataset = ContrastivePairDataset(pairs, labels, db)
+    dataloader = DataLoader(dataset, batch_size=64, shuffle=True, num_workers=4)
+    return dataloader
+
+
 def main():
     # Set up
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    db, _ = setup_mnist_database()
+    db, mnist_user = setup_mnist_database()
+    dataloader = get_dataloader(db, mnist_user)
 
     # Check if model exists, if not train it
     model_path = Path("models/embedding_model.pth")
     if not model_path.exists():
         print("Training embedding model...")
-        model = train_embedding_model(db, num_epochs=10, device=device)
+        model = train_embedding_model(
+            dataloader=dataloader,
+            device=device,
+        )
     else:
         print("Loading existing model...")
         model = torch.load(model_path)
