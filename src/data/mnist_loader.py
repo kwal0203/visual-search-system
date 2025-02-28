@@ -86,7 +86,14 @@ def generate_contrastive_pairs(db, num_pairs=10000, same_digit_ratio=0.5):
     pairs = []
     labels = []  # 1 for same digit, 0 for different digits
 
-    for _ in range(num_pairs):
+    print(f"Generating {num_pairs} contrastive pairs...")
+    progress_step = num_pairs // 10  # Calculate step size for 10% intervals
+
+    for i in range(num_pairs):
+        if i > 0 and i % progress_step == 0:
+            progress = (i / num_pairs) * 100
+            print(f"Progress: {progress:.0f}% - Generated {i} pairs")
+
         if np.random.random() < same_digit_ratio:
             # Generate positive pair (same digit)
             digit = np.random.randint(0, 10)
@@ -111,6 +118,7 @@ def generate_contrastive_pairs(db, num_pairs=10000, same_digit_ratio=0.5):
             pairs.append((img1.image_id, img2.image_id))
             labels.append(0)
 
+    print("100% - Pair generation complete!")
     return pairs, labels
 
 
