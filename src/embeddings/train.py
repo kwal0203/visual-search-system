@@ -42,10 +42,13 @@ class ContrastiveLoss(nn.Module):
                 f"Embedding shapes must match. Got {embedding1.shape} and {embedding2.shape}"
             )
 
-        if labels is not None and labels.shape[0] != embedding1.shape[0]:
-            raise ValueError(
-                f"Number of labels ({labels.shape[0]}) must match batch size ({embedding1.shape[0]})"
-            )
+        if labels is not None:
+            # Squeeze labels to make it 1D if it's 2D
+            labels = labels.squeeze()
+            if labels.shape[0] != embedding1.shape[0]:
+                raise ValueError(
+                    f"Number of labels ({labels.shape[0]}) must match batch size ({embedding1.shape[0]})"
+                )
 
         # Add debug prints
         print(f"Shape of embedding1: {embedding1.shape}")
