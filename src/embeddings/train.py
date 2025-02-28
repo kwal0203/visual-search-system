@@ -23,7 +23,7 @@ class ContrastiveLoss(nn.Module):
         self.temperature = temperature
         self.similarity = similarity
         self.reduction = reduction
-        self.debug = debug
+        self.debug = True  # Force debug mode on temporarily
 
     def forward(
         self,
@@ -53,12 +53,15 @@ class ContrastiveLoss(nn.Module):
                     f"Number of labels ({labels.shape[0]}) must match batch size ({embedding1.shape[0]})"
                 )
 
-        # Debug prints
-        if self.debug:
-            print(f"Shape of embedding1: {embedding1.shape}")
-            print(f"Shape of embedding2: {embedding2.shape}")
-            if labels is not None:
-                print(f"Shape of labels: {labels.shape}")
+        # Debug prints for input state
+        print("\n=== Start of forward pass ===")
+        print(f"Temperature: {self.temperature}")
+        print(
+            f"Embedding1 stats - min: {embedding1.min():.4f}, max: {embedding1.max():.4f}, mean: {embedding1.mean():.4f}"
+        )
+        print(
+            f"Embedding2 stats - min: {embedding2.min():.4f}, max: {embedding2.max():.4f}, mean: {embedding2.mean():.4f}"
+        )
 
         # Concatenate embeddings for combined processing
         embeddings = torch.cat([embedding1, embedding2], dim=0)
@@ -69,10 +72,16 @@ class ContrastiveLoss(nn.Module):
 
         # Normalize embeddings
         embeddings = F.normalize(embeddings, p=2, dim=1)
+        print(
+            f"Normalized embeddings stats - min: {embeddings.min():.4f}, max: {embeddings.max():.4f}, mean: {embeddings.mean():.4f}"
+        )
 
         # Compute similarity matrix
         if self.similarity == "cosine":
             similarity_matrix = torch.matmul(embeddings, embeddings.T)
+            print(
+                f"Similarity matrix stats - min: {similarity_matrix.min():.4f}, max: {similarity_matrix.max():.4f}, mean: {similarity_matrix.mean():.4f}"
+            )
         else:
             raise ValueError(f"Unknown similarity metric: {self.similarity}")
 
@@ -81,6 +90,9 @@ class ContrastiveLoss(nn.Module):
 
         # Scale similarities
         similarity_matrix = similarity_matrix / self.temperature
+        print(
+            f"Scaled similarity matrix stats - min: {similarity_matrix.min():.4f}, max: {similarity_matrix.max():.4f}, mean: {similarity_matrix.mean():.4f}"
+        )
 
         # Create labels if not provided (self-supervised case)
         if labels is None:
@@ -93,28 +105,46 @@ class ContrastiveLoss(nn.Module):
 
         # Create positive mask
         positive_mask = labels.unsqueeze(0) == labels.unsqueeze(1)
-        if self.debug:
-            print(f"Shape of positive mask: {positive_mask.shape}")
+        print(f"Number of positive pairs: {positive_mask.sum().item()}")
         positive_mask.fill_diagonal_(
             False
         )  # Set diagonal to False to exclude self-pairs
+        print(
+            f"Number of positive pairs (excluding diagonal): {positive_mask.sum().item()}"
+        )
 
         # Compute log probabilities
         exp_sim = torch.exp(similarity_matrix)
+        print(
+            f"Exp similarities stats - min: {exp_sim.min():.4f}, max: {exp_sim.max():.4f}, mean: {exp_sim.mean():.4f}"
+        )
+
         log_prob = similarity_matrix - torch.log(exp_sim.sum(dim=1, keepdim=True))
+        print(
+            f"Log prob stats - min: {log_prob.min():.4f}, max: {log_prob.max():.4f}, mean: {log_prob.mean():.4f}"
+        )
 
         # Compute mean of positive similarities
         mean_log_prob_pos = (positive_mask * log_prob).sum(dim=1) / positive_mask.sum(
             dim=1
         ).clamp(min=1)
+        print(
+            f"Mean log prob pos stats - min: {mean_log_prob_pos.min():.4f}, max: {mean_log_prob_pos.max():.4f}, mean: {mean_log_prob_pos.mean():.4f}"
+        )
 
         # Compute loss
         loss = -mean_log_prob_pos
+        print(
+            f"Loss before reduction - min: {loss.min():.4f}, max: {loss.max():.4f}, mean: {loss.mean():.4f}"
+        )
 
         if self.reduction == "mean":
             loss = loss.mean()
         elif self.reduction == "sum":
             loss = loss.sum()
+
+        print(f"Final loss: {loss.item():.4f}")
+        print("=== End of forward pass ===\n")
 
         return loss
 
