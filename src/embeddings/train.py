@@ -128,16 +128,11 @@ def load_training_config(config_path: Optional[str] = None) -> dict:
     Returns:
         Dictionary containing training configuration.
     """
-    default_config_path = Path(__file__).parent / "config.json"
-
-    # Load default config first
     try:
-        with open(default_config_path, "r") as f:
+        with open(config_path, "r") as f:
             config = json.load(f)
     except FileNotFoundError:
-        raise FileNotFoundError(
-            f"Default config file not found at {default_config_path}"
-        )
+        raise FileNotFoundError(f"Default config file not found at {config_path}")
 
     # If custom config provided, update default config with custom values
     if config_path is not None:
