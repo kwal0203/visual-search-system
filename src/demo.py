@@ -68,7 +68,7 @@ def main():
         print("Training embedding model...")
         model = train_embedding_model(
             dataloader=dataloader,
-            config_path="embeddings/config.json",
+            config_path="src/embeddings/config.json",
         )
     else:
         print("Loading existing model...")
