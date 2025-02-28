@@ -1,5 +1,6 @@
 from pathlib import Path
 from PIL import Image as PILImage
+from src.data.models import Image
 
 
 def save_sample_pairs(pairs, labels, db, num_samples=2):

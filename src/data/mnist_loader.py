@@ -1,6 +1,5 @@
 from pathlib import Path
 from torchvision import datasets, transforms
-from PIL import Image as PILImage
 import numpy as np
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker

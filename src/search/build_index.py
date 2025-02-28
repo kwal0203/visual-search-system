@@ -3,12 +3,14 @@ import faiss
 import numpy as np
 from pathlib import Path
 from tqdm import tqdm
-from PIL import Image
-import torch.nn.functional as F
+from PIL import Image as PILImage
 from torchvision import transforms
 
 from src.embeddings.models import get_embedding_model
 from src.data.mnist_loader import setup_mnist_database
+from src.data.models import Image
+
+# from src.data.models import Image
 
 
 def generate_embeddings(model, db, device="cuda"):
@@ -26,7 +28,7 @@ def generate_embeddings(model, db, device="cuda"):
     with torch.no_grad():
         for img in tqdm(images, desc="Generating embeddings"):
             # Load and transform image
-            image = Image.open(img.file_path)
+            image = PILImage.open(img.file_path)
             image = transform(image).unsqueeze(0).to(device)
 
             # Generate embedding
@@ -86,7 +88,7 @@ def search_similar_images(query_image_id, db, model, index, k=5, device="cuda"):
         raise ValueError("Query image not found")
 
     # Generate query embedding
-    image = Image.open(query_img.file_path)
+    image = PILImage.open(query_img.file_path)
     image = transform(image).unsqueeze(0).to(device)
 
     with torch.no_grad():
