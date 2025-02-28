@@ -134,15 +134,6 @@ def load_training_config(config_path: Optional[str] = None) -> dict:
     except FileNotFoundError:
         raise FileNotFoundError(f"Default config file not found at {config_path}")
 
-    # If custom config provided, update default config with custom values
-    if config_path is not None:
-        try:
-            with open(config_path, "r") as f:
-                custom_config = json.load(f)
-                config.update(custom_config)
-        except FileNotFoundError:
-            raise FileNotFoundError(f"Custom config file not found at {config_path}")
-
     return config
 
 
