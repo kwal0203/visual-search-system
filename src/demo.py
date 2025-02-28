@@ -1,8 +1,8 @@
 import torch
 from pathlib import Path
 import matplotlib.pyplot as plt
-from PIL import Image
-
+from PIL import Image as PILImage
+from src.data.models import Image as DBImage
 from src.data.mnist_loader import (
     setup_mnist_database,
     load_mnist,
@@ -26,7 +26,7 @@ def display_search_results(query_image_path, similar_images, num_results=5):
 
     # Show query image
     plt.subplot(1, num_results + 1, 1)
-    query_img = Image.open(query_image_path)
+    query_img = PILImage.open(query_image_path)
     plt.imshow(query_img, cmap="gray")
     plt.title("Query Image")
     plt.axis("off")
@@ -34,7 +34,7 @@ def display_search_results(query_image_path, similar_images, num_results=5):
     # Show similar images
     for i, img_info in enumerate(similar_images[:num_results], 1):
         plt.subplot(1, num_results + 1, i + 1)
-        similar_img = Image.open(img_info["file_path"])
+        similar_img = PILImage.open(img_info["file_path"])
         plt.imshow(similar_img, cmap="gray")
         plt.title(f"Similar {i}\nDigit: {img_info['digit']}")
         plt.axis("off")
@@ -88,8 +88,8 @@ def main():
     print("\nPerforming sample search...")
     # Get a random test image
     query_image = (
-        db.query(Image)
-        .filter(Image.is_mnist == True, Image.dataset_split == "test")
+        db.query(DBImage)
+        .filter(DBImage.is_mnist == True, DBImage.dataset_split == "test")
         .first()
     )
 
