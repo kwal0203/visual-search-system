@@ -2,6 +2,7 @@ import torch
 from pathlib import Path
 import matplotlib.pyplot as plt
 from PIL import Image as PILImage
+import os
 from src.data.models import Image as DBImage
 from src.data.mnist_loader import (
     setup_mnist_database,
@@ -17,8 +18,8 @@ from src.search.build_index import (
 from src.search.search import search_similar_images
 from torch.utils.data import DataLoader
 
-# Get the project root directory
-PROJECT_ROOT = Path(__file__).parent.parent
+# Get the workspace root directory (where the src directory is located)
+WORKSPACE_ROOT = Path(os.getcwd())
 
 
 def display_search_results(query_image_path, similar_images, num_results=5):
@@ -49,7 +50,7 @@ def get_dataloader(db, mnist_user):
     pairs, labels = generate_contrastive_pairs(
         # db, num_pairs=10000, same_digit_ratio=0.5
         db,
-        num_pairs=1000,
+        num_pairs=10,
         same_digit_ratio=0.5,
     )
     dataset = ContrastivePairDataset(pairs, labels, db)
@@ -69,9 +70,11 @@ def main():
     model_path = Path("models/embedding_model.pth")
     if not model_path.exists():
         print("Training embedding model...")
+        config_path = WORKSPACE_ROOT / "src" / "embeddings" / "config.json"
+        print(f"Using config from: {config_path}")
         model = train_embedding_model(
             dataloader=dataloader,
-            config_path=str(PROJECT_ROOT / "src/embeddings/config.json"),
+            config_path=str(config_path),
         )
     else:
         print("Loading existing model...")
