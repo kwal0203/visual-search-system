@@ -3,7 +3,6 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from PIL import Image as PILImage
 import os
-import re
 from src.data.models import Image as DBImage
 from src.data.mnist_loader import (
     setup_mnist_database,
@@ -19,8 +18,8 @@ from src.search.build_index import (
 from src.search.search import search_similar_images
 from torch.utils.data import DataLoader
 
-# Get the workspace root directory (where the src directory is located)
-WORKSPACE_ROOT = Path(os.getcwd())
+# Get the project root directory (where src directory is located)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def display_search_results(query_image_path, similar_images, num_results=5):
@@ -68,11 +67,14 @@ def main():
     dataloader = get_dataloader(db, mnist_user)
 
     # Check if model exists, if not train it
-    model_path = Path("models/embedding_model.pth")
+    model_path = PROJECT_ROOT / "models" / "embedding_model.pth"
+    model_path.parent.mkdir(
+        exist_ok=True
+    )  # Create models directory if it doesn't exist
+
     if not model_path.exists():
         print("Training embedding model...")
-        config_path = WORKSPACE_ROOT / "src" / "embeddings" / "config.json"
-        config_path = re.sub(r"/vss\.src/", "/vss/src/", config_path)
+        config_path = PROJECT_ROOT / "src" / "embeddings" / "config.json"
         print(f"Using config from: {config_path}")
         model = train_embedding_model(
             dataloader=dataloader,

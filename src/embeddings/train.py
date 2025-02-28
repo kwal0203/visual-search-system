@@ -128,11 +128,15 @@ def load_training_config(config_path: Optional[str] = None) -> dict:
     Returns:
         Dictionary containing training configuration.
     """
+    config_path = (
+        Path(config_path) if config_path else Path(__file__).parent / "config.json"
+    )
+
     try:
-        with open(config_path, "r") as f:
+        with config_path.open("r") as f:
             config = json.load(f)
     except FileNotFoundError:
-        raise FileNotFoundError(f"Default config file not found at {config_path}")
+        raise FileNotFoundError(f"Config file not found at {config_path}")
 
     return config
 
