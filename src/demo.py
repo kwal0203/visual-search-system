@@ -67,11 +67,9 @@ def main():
     model_path = Path("models/embedding_model.pth")
     if not model_path.exists():
         print("Training embedding model...")
-        config_path = "/content/vss/src/embeddings/config.json"
-        print(f"Using config from: {config_path}")
         model = train_embedding_model(
             dataloader=dataloader,
-            config_path=str(config_path),
+            config_path="/content/vss/src/embeddings/config.json",
         )
     else:
         print("Loading existing model...")
