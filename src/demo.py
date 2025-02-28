@@ -8,10 +8,8 @@ from src.data.mnist_loader import (
     load_mnist,
     generate_contrastive_pairs,
 )
-from src.training.train_embeddings import (
-    train_embedding_model,
-    ContrastivePairDataset,
-)
+from src.data.contrastive_dataset import ContrastivePairDataset
+from src.embeddings.train import train_embedding_model
 from src.search.build_index import (
     generate_embeddings,
     build_search_index,
