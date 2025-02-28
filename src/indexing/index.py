@@ -1,10 +1,9 @@
-from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, Tuple, Union
-
-import faiss
-import numpy as np
-import torch
 from sklearn.preprocessing import normalize
+from abc import ABC, abstractmethod
+from typing import Tuple
+
+import numpy as np
+import faiss
 
 
 class IndexBase(ABC):
