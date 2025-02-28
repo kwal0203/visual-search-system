@@ -53,11 +53,10 @@ htmlcov/
 Thumbs.db
 
 # Project specific
-data/
-models/
+/data/
+/embeddings/
 *.pt
 *.pth
 *.ckpt
-embeddings/
 index/
 logs/
