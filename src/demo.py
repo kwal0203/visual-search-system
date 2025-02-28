@@ -59,44 +59,44 @@ def main():
     db, mnist_user = setup_mnist_database()
     dataloader = get_dataloader(db, mnist_user)
 
-    # Check if model exists, if not train it
-    model_path = Path("models/embedding_model.pth")
-    if not model_path.exists():
-        print("Training embedding model...")
-        model = train_embedding_model(
-            dataloader=dataloader,
-            device=device,
-        )
-    else:
-        print("Loading existing model...")
-        model = torch.load(model_path)
-        model = model.to(device)
+    # # Check if model exists, if not train it
+    # model_path = Path("models/embedding_model.pth")
+    # if not model_path.exists():
+    #     print("Training embedding model...")
+    #     model = train_embedding_model(
+    #         dataloader=dataloader,
+    #         device=device,
+    #     )
+    # else:
+    #     print("Loading existing model...")
+    #     model = torch.load(model_path)
+    #     model = model.to(device)
 
-    # Generate embeddings and build index if they don't exist
-    index_path = Path("models/mnist_index.faiss")
-    if not index_path.exists():
-        print("Generating embeddings and building search index...")
-        embeddings, image_ids = generate_embeddings(model, db, device)
-        index = build_search_index(embeddings)
-    else:
-        print("Loading existing index...")
-        index = torch.load(index_path)
+    # # Generate embeddings and build index if they don't exist
+    # index_path = Path("models/mnist_index.faiss")
+    # if not index_path.exists():
+    #     print("Generating embeddings and building search index...")
+    #     embeddings, image_ids = generate_embeddings(model, db, device)
+    #     index = build_search_index(embeddings)
+    # else:
+    #     print("Loading existing index...")
+    #     index = torch.load(index_path)
 
-    # Perform a sample search
-    print("\nPerforming sample search...")
-    # Get a random test image
-    query_image = (
-        db.query(DBImage)
-        .filter(DBImage.is_mnist == True, DBImage.dataset_split == "test")
-        .first()
-    )
+    # # Perform a sample search
+    # print("\nPerforming sample search...")
+    # # Get a random test image
+    # query_image = (
+    #     db.query(DBImage)
+    #     .filter(DBImage.is_mnist == True, DBImage.dataset_split == "test")
+    #     .first()
+    # )
 
-    similar_images = search_similar_images(
-        query_image.image_id, db, model, index, k=5, device=device
-    )
+    # similar_images = search_similar_images(
+    #     query_image.image_id, db, model, index, k=5, device=device
+    # )
 
-    # Display results
-    display_search_results(query_image.file_path, similar_images)
+    # # Display results
+    # display_search_results(query_image.file_path, similar_images)
 
 
 if __name__ == "__main__":
