@@ -16,11 +16,13 @@ class ContrastiveLoss(nn.Module):
         temperature: float = 0.07,
         similarity: str = "cosine",
         reduction: str = "mean",
+        debug: bool = False,
     ):
         super().__init__()
         self.temperature = temperature
         self.similarity = similarity
         self.reduction = reduction
+        self.debug = debug
 
     def forward(
         self,
@@ -50,17 +52,19 @@ class ContrastiveLoss(nn.Module):
                     f"Number of labels ({labels.shape[0]}) must match batch size ({embedding1.shape[0]})"
                 )
 
-        # Add debug prints
-        print(f"Shape of embedding1: {embedding1.shape}")
-        print(f"Shape of embedding2: {embedding2.shape}")
-        if labels is not None:
-            print(f"Shape of labels: {labels.shape}")
+        # Debug prints
+        if self.debug:
+            print(f"Shape of embedding1: {embedding1.shape}")
+            print(f"Shape of embedding2: {embedding2.shape}")
+            if labels is not None:
+                print(f"Shape of labels: {labels.shape}")
 
         # Concatenate embeddings for combined processing
         embeddings = torch.cat([embedding1, embedding2], dim=0)
         batch_size = embedding1.shape[0]
 
-        print(f"Shape of concatenated embeddings: {embeddings.shape}")
+        if self.debug:
+            print(f"Shape of concatenated embeddings: {embeddings.shape}")
 
         # Normalize embeddings
         embeddings = F.normalize(embeddings, p=2, dim=1)
@@ -71,7 +75,8 @@ class ContrastiveLoss(nn.Module):
         else:
             raise ValueError(f"Unknown similarity metric: {self.similarity}")
 
-        print(f"Shape of similarity matrix: {similarity_matrix.shape}")
+        if self.debug:
+            print(f"Shape of similarity matrix: {similarity_matrix.shape}")
 
         # Scale similarities
         similarity_matrix = similarity_matrix / self.temperature
@@ -82,11 +87,16 @@ class ContrastiveLoss(nn.Module):
 
         # Extend labels to match concatenated embeddings
         labels = torch.cat([labels, labels])
-        print(f"Shape of extended labels: {labels.shape}")
+        if self.debug:
+            print(f"Shape of extended labels: {labels.shape}")
 
         # Create positive mask
         positive_mask = labels.unsqueeze(0) == labels.unsqueeze(1)
-        print(f"Shape of positive mask: {positive_mask.shape}")
+        if self.debug:
+            print(f"Shape of positive mask: {positive_mask.shape}")
+        positive_mask.fill_diagonal_(
+            False
+        )  # Set diagonal to False to exclude self-pairs
 
         # Compute log probabilities
         exp_sim = torch.exp(similarity_matrix)
