@@ -27,14 +27,17 @@ def setup_mnist_database(db_url: str = "sqlite:///mnist.db"):
     return db, mnist_user
 
 
-def load_mnist(save_dir: str = "data/mnist", db_url: str = "sqlite:///mnist.db"):
-    """Download MNIST and store in database with file paths."""
+def load_mnist(db, mnist_user, save_dir: str = "data/mnist"):
+    """Download MNIST and store in database with file paths.
+
+    Args:
+        db: Database session
+        mnist_user: User object for MNIST system
+        save_dir: Directory to save MNIST images
+    """
     # Create directories
     save_dir = Path(save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
-
-    # Set up database
-    db, mnist_user = setup_mnist_database(db_url)
 
     # Download MNIST
     transform = transforms.Compose([transforms.ToTensor()])
@@ -129,7 +132,7 @@ def generate_contrastive_pairs(db, num_pairs=10000, same_digit_ratio=0.5):
 
 if __name__ == "__main__":
     db, mnist_user = setup_mnist_database()
-    load_mnist()
+    load_mnist(db, mnist_user)
     pairs, labels = generate_contrastive_pairs(db)
     print(pairs)
     print(labels)
