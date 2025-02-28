@@ -47,7 +47,7 @@ def get_dataloader(db, mnist_user):
         db, num_pairs=10000, same_digit_ratio=0.5
     )
     dataset = ContrastivePairDataset(pairs, labels, db)
-    dataloader = DataLoader(dataset, batch_size=64, shuffle=True, num_workers=4)
+    dataloader = DataLoader(dataset, batch_size=64, shuffle=True, num_workers=2)
     return dataloader
 
 
@@ -59,18 +59,18 @@ def main():
     db, mnist_user = setup_mnist_database()
     dataloader = get_dataloader(db, mnist_user)
 
-    # # Check if model exists, if not train it
-    # model_path = Path("models/embedding_model.pth")
-    # if not model_path.exists():
-    #     print("Training embedding model...")
-    #     model = train_embedding_model(
-    #         dataloader=dataloader,
-    #         device=device,
-    #     )
-    # else:
-    #     print("Loading existing model...")
-    #     model = torch.load(model_path)
-    #     model = model.to(device)
+    # Check if model exists, if not train it
+    model_path = Path("models/embedding_model.pth")
+    if not model_path.exists():
+        print("Training embedding model...")
+        model = train_embedding_model(
+            dataloader=dataloader,
+            device=device,
+        )
+    else:
+        print("Loading existing model...")
+        model = torch.load(model_path)
+        model = model.to(device)
 
     # # Generate embeddings and build index if they don't exist
     # index_path = Path("models/mnist_index.faiss")
