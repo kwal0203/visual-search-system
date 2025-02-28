@@ -36,9 +36,28 @@ class ContrastiveLoss(nn.Module):
             embedding2: Second set of embeddings of shape (batch_size, embedding_dim)
             labels: Optional tensor of shape (batch_size,) for supervised contrastive loss
         """
+        # Validate input shapes
+        if embedding1.shape != embedding2.shape:
+            raise ValueError(
+                f"Embedding shapes must match. Got {embedding1.shape} and {embedding2.shape}"
+            )
+
+        if labels is not None and labels.shape[0] != embedding1.shape[0]:
+            raise ValueError(
+                f"Number of labels ({labels.shape[0]}) must match batch size ({embedding1.shape[0]})"
+            )
+
+        # Add debug prints
+        print(f"Shape of embedding1: {embedding1.shape}")
+        print(f"Shape of embedding2: {embedding2.shape}")
+        if labels is not None:
+            print(f"Shape of labels: {labels.shape}")
+
         # Concatenate embeddings for combined processing
         embeddings = torch.cat([embedding1, embedding2], dim=0)
         batch_size = embedding1.shape[0]
+
+        print(f"Shape of concatenated embeddings: {embeddings.shape}")
 
         # Normalize embeddings
         embeddings = F.normalize(embeddings, p=2, dim=1)
@@ -49,6 +68,8 @@ class ContrastiveLoss(nn.Module):
         else:
             raise ValueError(f"Unknown similarity metric: {self.similarity}")
 
+        print(f"Shape of similarity matrix: {similarity_matrix.shape}")
+
         # Scale similarities
         similarity_matrix = similarity_matrix / self.temperature
 
@@ -58,10 +79,11 @@ class ContrastiveLoss(nn.Module):
 
         # Extend labels to match concatenated embeddings
         labels = torch.cat([labels, labels])
+        print(f"Shape of extended labels: {labels.shape}")
 
         # Create positive mask
         positive_mask = labels.unsqueeze(0) == labels.unsqueeze(1)
-        positive_mask.fill_diagonal_(False)
+        print(f"Shape of positive mask: {positive_mask.shape}")
 
         # Compute log probabilities
         exp_sim = torch.exp(similarity_matrix)
