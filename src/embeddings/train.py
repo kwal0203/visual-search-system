@@ -5,6 +5,7 @@ from typing import Optional
 from pathlib import Path
 import json
 from tqdm import tqdm
+import math
 
 from src.embeddings.models import get_embedding_model
 
@@ -14,13 +15,13 @@ class ContrastiveLoss(nn.Module):
 
     def __init__(
         self,
-        temperature: float = 0.07,
+        base_temperature: float = 0.07,
         similarity: str = "cosine",
         reduction: str = "mean",
         debug: bool = False,
     ):
         super().__init__()
-        self.temperature = temperature
+        self.base_temperature = base_temperature
         self.similarity = similarity
         self.reduction = reduction
         self.debug = True  # Force debug mode on temporarily
@@ -53,19 +54,17 @@ class ContrastiveLoss(nn.Module):
                     f"Number of labels ({labels.shape[0]}) must match batch size ({embedding1.shape[0]})"
                 )
 
-        # Debug prints for input state
-        print("\n=== Start of forward pass ===")
-        print(f"Temperature: {self.temperature}")
-        print(
-            f"Embedding1 stats - min: {embedding1.min():.4f}, max: {embedding1.max():.4f}, mean: {embedding1.mean():.4f}"
-        )
-        print(
-            f"Embedding2 stats - min: {embedding2.min():.4f}, max: {embedding2.max():.4f}, mean: {embedding2.mean():.4f}"
-        )
+        # Get batch size and adapt temperature based on it
+        batch_size = embedding1.shape[0]
+        # Adjust temperature based on batch size - larger batches need higher temperature
+        self.temperature = self.base_temperature * (1 + math.log(batch_size) / 10)
+
+        print(f"\n=== Start of forward pass ===")
+        print(f"Batch size: {batch_size}")
+        print(f"Adjusted temperature: {self.temperature:.4f}")
 
         # Concatenate embeddings for combined processing
         embeddings = torch.cat([embedding1, embedding2], dim=0)
-        batch_size = embedding1.shape[0]
 
         # Print raw embedding properties
         print(f"Raw embedding shape: {embeddings.shape}")
@@ -152,23 +151,61 @@ class ContrastiveLoss(nn.Module):
             print(
                 f"Off-diagonal similarity stats - min: {off_diag_sim.min():.4f}, max: {off_diag_sim.max():.4f}, mean: {off_diag_sim.mean():.4f}"
             )
+
+            # Analyze positive vs negative similarities
+            if labels is not None:
+                pos_mask = labels.unsqueeze(0) == labels.unsqueeze(1)
+                pos_mask.fill_diagonal_(False)  # Exclude self-pairs
+                neg_mask = ~pos_mask
+                pos_sims = similarity_matrix[pos_mask]
+                neg_sims = similarity_matrix[neg_mask]
+
+                print("\nSimilarity Analysis:")
+                print(
+                    f"Positive pairs - min: {pos_sims.min():.4f}, max: {pos_sims.max():.4f}, mean: {pos_sims.mean():.4f}"
+                )
+                print(
+                    f"Negative pairs - min: {neg_sims.min():.4f}, max: {neg_sims.max():.4f}, mean: {neg_sims.mean():.4f}"
+                )
+                print(
+                    f"Separation (pos_mean - neg_mean): {pos_sims.mean() - neg_sims.mean():.4f}"
+                )
         else:
             raise ValueError(f"Unknown similarity metric: {self.similarity}")
 
         if self.debug:
             print(f"Shape of similarity matrix: {similarity_matrix.shape}")
 
-        # Scale similarities with numerical stability checks
+        # Scale similarities with improved numerical stability
         similarity_matrix = similarity_matrix / self.temperature
 
-        # Prevent extremely large values after temperature scaling
+        # Center the similarities to prevent exponential overflow/underflow
         max_val = torch.max(similarity_matrix)
+        min_val = torch.min(similarity_matrix)
         similarity_matrix = (
             similarity_matrix - max_val
-        )  # Subtract maximum for numerical stability
+        ) * 0.9  # Scale slightly to prevent exact zeros
+
+        # Compute log probabilities with improved numerical stability
+        exp_sim = torch.exp(similarity_matrix)
+
+        # Normalize the exponentials by the maximum to prevent overflow
+        exp_sim_sum = exp_sim.sum(dim=1, keepdim=True)
+        max_exp = torch.max(exp_sim_sum)
+        if max_exp > 1e6:  # If exponentials are too large
+            print(f"WARNING: Large exponential sums detected: {max_exp:.2e}")
+
+        # Add small epsilon relative to the maximum value
+        epsilon = max_exp * 1e-6
+        log_prob = similarity_matrix - torch.log(
+            exp_sim.sum(dim=1, keepdim=True) + epsilon
+        )
 
         print(
-            f"Scaled similarity matrix stats - min: {similarity_matrix.min():.4f}, max: {similarity_matrix.max():.4f}, mean: {similarity_matrix.mean():.4f}"
+            f"Exp similarities stats - min: {exp_sim.min():.4f}, max: {exp_sim.max():.4f}, mean: {exp_sim.mean():.4f}"
+        )
+        print(
+            f"Log prob stats - min: {log_prob.min():.4f}, max: {log_prob.max():.4f}, mean: {log_prob.mean():.4f}"
         )
 
         # Create labels if not provided (self-supervised case)
@@ -188,19 +225,6 @@ class ContrastiveLoss(nn.Module):
         )  # Set diagonal to False to exclude self-pairs
         print(
             f"Number of positive pairs (excluding diagonal): {positive_mask.sum().item()}"
-        )
-
-        # Compute log probabilities with numerical stability
-        exp_sim = torch.exp(similarity_matrix)
-        # Add small epsilon to prevent log(0)
-        denominator = torch.log(exp_sim.sum(dim=1, keepdim=True) + 1e-6)
-        log_prob = similarity_matrix - denominator
-
-        print(
-            f"Exp similarities stats - min: {exp_sim.min():.4f}, max: {exp_sim.max():.4f}, mean: {exp_sim.mean():.4f}"
-        )
-        print(
-            f"Log prob stats - min: {log_prob.min():.4f}, max: {log_prob.max():.4f}, mean: {log_prob.mean():.4f}"
         )
 
         # Compute mean of positive similarities
@@ -278,7 +302,7 @@ def train_embedding_model(dataloader, config_path: Optional[str] = None):
     model = model.to(training_config["device"])
 
     criterion = ContrastiveLoss(
-        temperature=training_config["contrastive_loss_temp"],
+        base_temperature=training_config["contrastive_loss_temp"],
         similarity=training_config["contrastive_loss_similarity"],
         reduction=training_config["contrastive_loss_reduction"],
     )
