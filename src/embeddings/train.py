@@ -18,13 +18,11 @@ class ContrastiveLoss(nn.Module):
         base_temperature: float = 0.07,
         similarity: str = "cosine",
         reduction: str = "mean",
-        debug: bool = False,
     ):
         super().__init__()
         self.base_temperature = base_temperature
         self.similarity = similarity
         self.reduction = reduction
-        self.debug = True  # Force debug mode on temporarily
 
     def forward(
         self,
@@ -40,216 +38,56 @@ class ContrastiveLoss(nn.Module):
             embedding2: Second set of embeddings of shape (batch_size, embedding_dim)
             labels: Optional tensor of shape (batch_size,) for supervised contrastive loss
         """
-        # Validate input shapes
         if embedding1.shape != embedding2.shape:
             raise ValueError(
                 f"Embedding shapes must match. Got {embedding1.shape} and {embedding2.shape}"
             )
 
-        if labels is not None:
-            # Squeeze labels to make it 1D if it's 2D
-            labels = labels.squeeze()
-            if labels.shape[0] != embedding1.shape[0]:
-                raise ValueError(
-                    f"Number of labels ({labels.shape[0]}) must match batch size ({embedding1.shape[0]})"
-                )
-
-        # Get batch size and adapt temperature based on it
         batch_size = embedding1.shape[0]
-        # Adjust temperature based on batch size - larger batches need higher temperature
+        # Adjust temperature based on batch size
         self.temperature = self.base_temperature * (1 + math.log(batch_size) / 10)
 
-        print(f"\n=== Start of forward pass ===")
-        print(f"Batch size: {batch_size}")
-        print(f"Adjusted temperature: {self.temperature:.4f}")
-
-        # Concatenate embeddings for combined processing
+        # Concatenate and normalize embeddings
         embeddings = torch.cat([embedding1, embedding2], dim=0)
-
-        # Print raw embedding properties
-        print(f"Raw embedding shape: {embeddings.shape}")
-        print(f"First few raw embedding values:\n{embeddings[0, :5]}")
-
-        # Check for NaN or Inf values before normalization
-        if torch.isnan(embeddings).any():
-            print("WARNING: NaN values detected in embeddings before normalization")
-        if torch.isinf(embeddings).any():
-            print("WARNING: Inf values detected in embeddings before normalization")
-
-        # Compute and print L2 norms before normalization
-        pre_norm = torch.norm(embeddings, p=2, dim=1)
-        print(
-            f"L2 norms before normalization - min: {pre_norm.min():.4f}, max: {pre_norm.max():.4f}, mean: {pre_norm.mean():.4f}"
-        )
-
-        # Normalize embeddings
         embeddings = F.normalize(embeddings, p=2, dim=1)
-        print(
-            f"Normalized embeddings stats - min: {embeddings.min():.4f}, max: {embeddings.max():.4f}, mean: {embeddings.mean():.4f}"
-        )
-        print(f"First few normalized embedding values:\n{embeddings[0, :5]}")
 
-        # Verify normalization worked correctly
-        norms = torch.norm(embeddings, p=2, dim=1)
-        print(
-            f"L2 norms after normalization - min: {norms.min():.4f}, max: {norms.max():.4f}, mean: {norms.mean():.4f}"
-        )
-
-        # Compute similarity matrix with extra checks
+        # Compute similarity matrix
         if self.similarity == "cosine":
-            # Split embeddings back to compute pairwise similarities
-            emb1 = embeddings[:batch_size]
-            emb2 = embeddings[batch_size:]
-
-            # Compute similarities between all pairs
-            similarity_matrix = torch.zeros(
-                (2 * batch_size, 2 * batch_size), device=embeddings.device
-            )
-
-            # Fill in the quadrants
-            similarity_matrix[:batch_size, :batch_size] = torch.matmul(
-                emb1, emb1.T
-            )  # emb1 with emb1
-            similarity_matrix[batch_size:, batch_size:] = torch.matmul(
-                emb2, emb2.T
-            )  # emb2 with emb2
-            similarity_matrix[:batch_size, batch_size:] = torch.matmul(
-                emb1, emb2.T
-            )  # emb1 with emb2
-            similarity_matrix[batch_size:, :batch_size] = torch.matmul(
-                emb2, emb1.T
-            )  # emb2 with emb1
-
-            # Numerical stability: clip values to [-1, 1] range
+            similarity_matrix = torch.matmul(embeddings, embeddings.T)
             similarity_matrix = torch.clamp(similarity_matrix, min=-1.0, max=1.0)
-
-            print(
-                f"Similarity matrix stats - min: {similarity_matrix.min():.4f}, max: {similarity_matrix.max():.4f}, mean: {similarity_matrix.mean():.4f}"
-            )
-
-            # Analyze similarity distribution
-            sim_hist = torch.histc(similarity_matrix, bins=10, min=-1.0, max=1.0)
-            print("\nSimilarity Distribution (10 bins from -1 to 1):")
-            for i, count in enumerate(sim_hist):
-                bin_start = -1.0 + i * 0.2
-                bin_end = bin_start + 0.2
-                print(f"  {bin_start:.1f} to {bin_end:.1f}: {count.item():.0f} pairs")
-
-            print(f"First few similarity rows:\n{similarity_matrix[0, :5]}")
-
-            # Print diagonal values to verify self-similarity
-            diag_sim = torch.diagonal(similarity_matrix)
-            print(
-                f"Diagonal similarity stats - min: {diag_sim.min():.4f}, max: {diag_sim.max():.4f}, mean: {diag_sim.mean():.4f}"
-            )
-
-            # Print off-diagonal values to verify different embeddings have different similarities
-            off_diag_mask = ~torch.eye(
-                similarity_matrix.shape[0], dtype=bool, device=similarity_matrix.device
-            )
-            off_diag_sim = similarity_matrix[off_diag_mask]
-            print(
-                f"Off-diagonal similarity stats - min: {off_diag_sim.min():.4f}, max: {off_diag_sim.max():.4f}, mean: {off_diag_sim.mean():.4f}"
-            )
-
-            # Analyze positive vs negative similarities
-            if labels is not None:
-                pos_mask = labels.unsqueeze(0) == labels.unsqueeze(1)
-                pos_mask.fill_diagonal_(False)  # Exclude self-pairs
-                neg_mask = ~pos_mask
-                pos_sims = similarity_matrix[pos_mask]
-                neg_sims = similarity_matrix[neg_mask]
-
-                print("\nSimilarity Analysis:")
-                print(
-                    f"Positive pairs - min: {pos_sims.min():.4f}, max: {pos_sims.max():.4f}, mean: {pos_sims.mean():.4f}"
-                )
-                print(
-                    f"Negative pairs - min: {neg_sims.min():.4f}, max: {neg_sims.max():.4f}, mean: {neg_sims.mean():.4f}"
-                )
-                print(
-                    f"Separation (pos_mean - neg_mean): {pos_sims.mean() - neg_sims.mean():.4f}"
-                )
         else:
             raise ValueError(f"Unknown similarity metric: {self.similarity}")
 
-        if self.debug:
-            print(f"Shape of similarity matrix: {similarity_matrix.shape}")
-
         # Scale similarities with improved numerical stability
         similarity_matrix = similarity_matrix / self.temperature
-
-        # Center the similarities to prevent exponential overflow/underflow
         max_val = torch.max(similarity_matrix)
-        min_val = torch.min(similarity_matrix)
-        similarity_matrix = (
-            similarity_matrix - max_val
-        ) * 0.9  # Scale slightly to prevent exact zeros
+        similarity_matrix = (similarity_matrix - max_val) * 0.9
 
-        # Compute log probabilities with improved numerical stability
+        # Compute log probabilities
         exp_sim = torch.exp(similarity_matrix)
-
-        # Normalize the exponentials by the maximum to prevent overflow
         exp_sim_sum = exp_sim.sum(dim=1, keepdim=True)
-        max_exp = torch.max(exp_sim_sum)
-        if max_exp > 1e6:  # If exponentials are too large
-            print(f"WARNING: Large exponential sums detected: {max_exp:.2e}")
-
-        # Add small epsilon relative to the maximum value
-        epsilon = max_exp * 1e-6
-        log_prob = similarity_matrix - torch.log(
-            exp_sim.sum(dim=1, keepdim=True) + epsilon
-        )
-
-        print(
-            f"Exp similarities stats - min: {exp_sim.min():.4f}, max: {exp_sim.max():.4f}, mean: {exp_sim.mean():.4f}"
-        )
-        print(
-            f"Log prob stats - min: {log_prob.min():.4f}, max: {log_prob.max():.4f}, mean: {log_prob.mean():.4f}"
-        )
+        epsilon = torch.max(exp_sim_sum) * 1e-6
+        log_prob = similarity_matrix - torch.log(exp_sim_sum + epsilon)
 
         # Create labels if not provided (self-supervised case)
         if labels is None:
             labels = torch.arange(batch_size, device=embeddings.device)
-
-        # Extend labels to match concatenated embeddings
         labels = torch.cat([labels, labels])
-        if self.debug:
-            print(f"Shape of extended labels: {labels.shape}")
 
-        # Create positive mask
+        # Create positive mask and compute loss
         positive_mask = labels.unsqueeze(0) == labels.unsqueeze(1)
-        print(f"Number of positive pairs: {positive_mask.sum().item()}")
-        positive_mask.fill_diagonal_(
-            False
-        )  # Set diagonal to False to exclude self-pairs
-        print(
-            f"Number of positive pairs (excluding diagonal): {positive_mask.sum().item()}"
-        )
-
-        # Compute mean of positive similarities
+        positive_mask.fill_diagonal_(False)
         mean_log_prob_pos = (positive_mask * log_prob).sum(dim=1) / positive_mask.sum(
             dim=1
         ).clamp(min=1)
-        print(
-            f"Mean log prob pos stats - min: {mean_log_prob_pos.min():.4f}, max: {mean_log_prob_pos.max():.4f}, mean: {mean_log_prob_pos.mean():.4f}"
-        )
-
-        # Compute loss
         loss = -mean_log_prob_pos
-        print(
-            f"Loss before reduction - min: {loss.min():.4f}, max: {loss.max():.4f}, mean: {loss.mean():.4f}"
-        )
 
         if self.reduction == "mean":
-            loss = loss.mean()
+            return loss.mean()
         elif self.reduction == "sum":
-            loss = loss.sum()
-
-        print(f"Final loss: {loss.item():.4f}")
-        print("=== End of forward pass ===\n")
-
-        return loss
+            return loss.sum()
+        else:
+            return loss
 
 
 def load_training_config(config_path: Optional[str] = None) -> dict:
@@ -280,16 +118,6 @@ def train_embedding_model(dataloader, config_path: Optional[str] = None):
     Args:
         dataloader: DataLoader instance
         config_path: Path to JSON config file containing training parameters.
-                    If None, uses default config file.
-                    The JSON file should contain the following keys:
-                    - num_epochs: Number of training epochs
-                    - embedding_dim: Dimension of the embedding space
-                    - learning_rate: Learning rate for optimization
-                    - device: Device to run the training on
-                    - model_type: Type of embedding model to use
-                    - contrastive_loss_temp: Temperature for contrastive loss
-                    - contrastive_loss_similarity: Similarity metric for contrastive loss
-                    - contrastive_loss_reduction: Reduction method for contrastive loss
     """
     # Load configuration from JSON file
     training_config = load_training_config(config_path)
