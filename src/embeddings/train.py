@@ -18,11 +18,13 @@ class ContrastiveLoss(nn.Module):
         base_temperature: float = 0.07,
         similarity: str = "cosine",
         reduction: str = "mean",
+        margin: float = 0.5,  # margin for negative pairs
     ):
         super().__init__()
         self.base_temperature = base_temperature
         self.similarity = similarity
         self.reduction = reduction
+        self.margin = margin
 
     def forward(
         self,
@@ -55,11 +57,27 @@ class ContrastiveLoss(nn.Module):
         if self.similarity == "cosine":
             similarity_matrix = torch.matmul(embeddings, embeddings.T)
             similarity_matrix = torch.clamp(similarity_matrix, min=-1.0, max=1.0)
+        elif self.similarity == "euclidean":
+            # Compute pairwise L2 distances
+            # Using ||a-b||^2 = ||a||^2 + ||b||^2 - 2<a,b>
+            square_norm = torch.sum(embeddings**2, dim=1, keepdim=True)
+            distances = (
+                square_norm + square_norm.T - 2 * torch.matmul(embeddings, embeddings.T)
+            )
+            distances = torch.clamp(
+                distances, min=0.0
+            )  # Ensure non-negative due to numerical precision
+            # Convert distances to similarities (negative distance, scaled to similar range as cosine)
+            similarity_matrix = -torch.sqrt(
+                distances + 1e-8
+            )  # Add epsilon to avoid sqrt(0)
+            # Normalize to roughly [-1, 1] range like cosine similarity
+            similarity_matrix = similarity_matrix / math.sqrt(embeddings.shape[1])
         else:
             raise ValueError(f"Unknown similarity metric: {self.similarity}")
 
         # Scale similarities with improved numerical stability
-        similarity_matrix = similarity_matrix / self.temperature
+        # similarity_matrix = similarity_matrix / self.temperature
         max_val = torch.max(similarity_matrix)
         similarity_matrix = (similarity_matrix - max_val) * 0.9
 
@@ -74,13 +92,28 @@ class ContrastiveLoss(nn.Module):
             labels = torch.arange(batch_size, device=embeddings.device)
         labels = torch.cat([labels, labels])
 
-        # Create positive mask and compute loss
+        # Create positive and negative masks
         positive_mask = labels.unsqueeze(0) == labels.unsqueeze(1)
         positive_mask.fill_diagonal_(False)
+        negative_mask = ~positive_mask
+
+        # Compute positive pair loss (attraction)
         mean_log_prob_pos = (positive_mask * log_prob).sum(dim=1) / positive_mask.sum(
             dim=1
         ).clamp(min=1)
-        loss = -mean_log_prob_pos
+
+        # Compute negative pair loss with margin (repulsion)
+        # Only apply margin to pairs that are closer than margin
+        neg_similarities = similarity_matrix * negative_mask
+        margin_violation = F.relu(
+            neg_similarities + self.margin
+        )  # Only penalize pairs closer than -margin
+        neg_loss = (margin_violation * negative_mask).sum(dim=1) / negative_mask.sum(
+            dim=1
+        ).clamp(min=1)
+
+        # Combine both losses
+        loss = -mean_log_prob_pos + neg_loss
 
         if self.reduction == "mean":
             return loss.mean()
@@ -133,6 +166,7 @@ def train_embedding_model(dataloader, config_path: Optional[str] = None):
         base_temperature=training_config["contrastive_loss_temp"],
         similarity=training_config["contrastive_loss_similarity"],
         reduction=training_config["contrastive_loss_reduction"],
+        margin=training_config["contrastive_loss_margin"],
     )
 
     optimizer = torch.optim.Adam(
