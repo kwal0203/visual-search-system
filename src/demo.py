@@ -1,22 +1,25 @@
-import torch
-from pathlib import Path
-import matplotlib.pyplot as plt
+from src.data.random_sampler import BalancedRandomPairBatchSampler
+from src.search.search import search_similar_images
+from torch.utils.data import DataLoader
+from torchvision import transforms
 from PIL import Image as PILImage
-import os
-from src.data.models import Image as DBImage
+from pathlib import Path
+
 from src.data.mnist_loader import (
     setup_mnist_database,
     load_mnist,
     generate_contrastive_pairs,
 )
-from src.data.contrastive_dataset import ContrastivePairDataset
+from src.data.contrastive_dataset import ContrastivePairDatasetMNIST
 from src.embeddings.train import train_embedding_model
 from src.search.build_index import (
     generate_embeddings,
     build_search_index,
 )
-from src.search.search import search_similar_images
-from torch.utils.data import DataLoader
+
+import matplotlib.pyplot as plt
+import torch
+
 
 # Get the project root directory (where src directory is located)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -52,9 +55,25 @@ def get_dataloader(db, mnist_user):
         num_pairs=10000,
         same_digit_ratio=0.5,
     )
-    dataset = ContrastivePairDataset(pairs, labels, db)
-    dataloader = DataLoader(dataset, batch_size=64, shuffle=True, num_workers=2)
-    return dataloader
+
+    # Create dataset and DataLoader
+    transform = transforms.Compose(
+        [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
+    )
+    train_dataset = ContrastivePairDatasetMNIST(
+        db_path="mnist.db", dataset_split="train", transform=transform
+    )
+    test_dataset = ContrastivePairDatasetMNIST(
+        db_path="mnist.db", dataset_split="test", transform=transform
+    )
+
+    train_sampler = BalancedRandomPairBatchSampler(train_dataset)
+    test_sampler = BalancedRandomPairBatchSampler(test_dataset)
+
+    train_dataloader = DataLoader(dataset, batch_sampler=train_sampler)
+    test_dataloader = DataLoader(dataset, batch_sampler=test_sampler)
+
+    return train_dataloader, test_dataloader
 
 
 def main():
@@ -63,7 +82,7 @@ def main():
     print(f"Using device: {device}")
 
     db, mnist_user = setup_mnist_database()
-    dataloader = get_dataloader(db, mnist_user)
+    train_dataloader, test_dataloader = get_dataloader(db, mnist_user)
 
     # Check if model exists, if not train it
     model_path = PROJECT_ROOT / "models" / "embedding_model.pth"
@@ -76,7 +95,8 @@ def main():
         config_path = PROJECT_ROOT / "src" / "embeddings" / "config.json"
         print(f"Using config from: {config_path}")
         model = train_embedding_model(
-            dataloader=dataloader,
+            train_dataloader=train_dataloader,
+            test_dataloader=test_dataloader,
             config_path=str(config_path),
         )
     else:

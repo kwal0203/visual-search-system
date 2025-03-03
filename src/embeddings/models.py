@@ -73,18 +73,33 @@ class CNNEmbedding(EmbeddingModel):
         return x
 
 
-class CNNEmbeddingFromChatGPT(nn.Module):
+class CNNEmbeddingBasic(EmbeddingModel):
+    def __init__(self, embedding_dim: int = 64):
+        super(CNNEmbeddingBasic, self).__init__()
+        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1)
+        self.fc = nn.Linear(64 * 14 * 14, 128)
+
+    def forward(self, x):
+        x = nn.functional.relu(self.conv1(x))
+        x = nn.functional.relu(self.conv2(x))
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
+        return x
+
+
+class CNNEmbeddingFromChatGPT(EmbeddingModel):
     """Improved CNN for contrastive learning with normalized embeddings."""
 
     def __init__(self, embedding_dim: int = 64):
         super().__init__()
         self.conv1 = nn.Conv2d(1, 32, kernel_size=5)
-        self.bn1 = nn.BatchNorm2d(32)  # BatchNorm after Conv1
+        self.bn1 = nn.BatchNorm2d(32)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=5)
-        self.bn2 = nn.BatchNorm2d(64)  # BatchNorm after Conv2
+        self.bn2 = nn.BatchNorm2d(64)
 
         self.fc1 = nn.Linear(64 * 4 * 4, 256)
-        self.bn3 = nn.BatchNorm1d(256)  # BatchNorm for FC layer
+        self.bn3 = nn.BatchNorm1d(256)
         self.fc2 = nn.Linear(256, embedding_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -93,14 +108,15 @@ class CNNEmbeddingFromChatGPT(nn.Module):
         x = x.view(-1, 64 * 4 * 4)
         x = F.leaky_relu(self.bn3(self.fc1(x)))
         x = self.fc2(x)
-        return x  # Normalized in loss function
+        return x
 
 
-def get_embedding_model(model_type: str = "resnet", **kwargs) -> EmbeddingModel:
+def get_embedding_model(model_type: str = "cnn_basic", **kwargs) -> EmbeddingModel:
     """Factory function to create embedding models."""
     models = {
         "resnet": ResNetEmbedding,
         "cnn": CNNEmbedding,
+        "cnn_basic": CNNEmbeddingBasic,
         "cnn_chatgpt": CNNEmbeddingFromChatGPT,
     }
 
