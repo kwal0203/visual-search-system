@@ -1,4 +1,5 @@
 from src.embeddings.models import get_embedding_model
+from src.embeddings.util import plot_losses
 from torch.utils.data import DataLoader
 from typing import Optional
 from pathlib import Path
@@ -166,5 +167,6 @@ def train_embedding_model(
     save_dir.mkdir(exist_ok=True)
     torch.save(model.state_dict(), save_dir / "embedding_model.pth")
     print(f"Model saved to {save_dir / 'embedding_model.pth'}")
+    plot_losses(epoch_losses)
 
     return model
