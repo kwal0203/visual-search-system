@@ -51,6 +51,9 @@ def load_mnist(db_path: str, save_dir: str, raw_dir: str):
         # save_dir = Path(save_dir)
         # save_dir.mkdir(parents=True, exist_ok=True)
 
+        # Convert save_dir to Path object
+        save_dir = Path(save_dir)
+
         # Download MNIST
         transform = transforms.Compose([transforms.ToTensor()])
         train_dataset = datasets.MNIST(

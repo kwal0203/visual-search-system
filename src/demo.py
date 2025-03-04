@@ -1,17 +1,16 @@
-from src.storage_service.random_sampler import BalancedRandomPairBatchSampler
+from src.embedding_service.random_sampler import BalancedRandomPairBatchSampler
+from src.storage_service.service import setup_storage
 from src.search.search import search_similar_images
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from PIL import Image as PILImage
 from pathlib import Path
-
 from src.storage_service.mnist_loader import (
     setup_mnist_database,
     load_mnist,
     generate_contrastive_pairs,
 )
-from src.storage_service.contrastive_dataset import ContrastivePairDatasetMNIST
-from src.embedding_service.train import train_embedding_model
+from src.embedding_service.service import train_model
 from src.search.build_index import (
     generate_embeddings,
     build_search_index,
@@ -49,76 +48,25 @@ def display_search_results(query_image_path, similar_images, num_results=5):
     plt.show()
 
 
-def get_dataloader(db_path: str, save_dir: str):
-    # Create dataset and DataLoader
-    transform = transforms.Compose(
-        [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
-    )
-
-    train_dataset = ContrastivePairDatasetMNIST(
-        db_path=db_path,
-        dataset_split="train",
-        transform=transform,
-    )
-    test_dataset = ContrastivePairDatasetMNIST(
-        db_path=db_path,
-        dataset_split="test",
-        transform=transform,
-    )
-
-    train_sampler = BalancedRandomPairBatchSampler(train_dataset)
-    test_sampler = BalancedRandomPairBatchSampler(test_dataset)
-
-    train_dataloader = DataLoader(train_dataset, batch_sampler=train_sampler)
-    test_dataloader = DataLoader(test_dataset, batch_sampler=test_sampler)
-
-    return train_dataloader, test_dataloader
-
-
 def main():
-    # Set up
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
-
-    # Raw data is stored in src/storage_service/raw
-    # Processed data is stored in src/storage_service/processed
-    # Trained model is stored in src/embedding_service/model
 
     db_path = f"src/storage_service/mnist.db"
     save_dir = "src/storage_service/processed"
     raw_dir = "src/storage_service/raw"
+    setup_storage(db_path=db_path, save_dir=save_dir, raw_dir=raw_dir)
 
-    if not Path(db_path).exists():
-        os.makedirs(save_dir, exist_ok=True)
-        os.makedirs(raw_dir, exist_ok=True)
-        setup_mnist_database(db_path=db_path)
-        load_mnist(db_path=db_path, save_dir=save_dir, raw_dir=raw_dir)
-
-    return
-
-    train_dataloader, test_dataloader = get_dataloader(
-        db_path=db_path, save_dir=save_dir
+    config_path = PROJECT_ROOT / "src" / "embedding_service" / "config.json"
+    model_path = (
+        PROJECT_ROOT / "src" / "embedding_service" / "model" / "embedding_model.pth"
     )
-
-    # Check if model exists, if not train it
-    model_path = PROJECT_ROOT / "training_outputs" / "model" / "embedding_model.pth"
-    model_path.parent.mkdir(
-        exist_ok=True
-    )  # Create models directory if it doesn't exist
-
-    if not model_path.exists():
-        print("Training embedding model...")
-        config_path = PROJECT_ROOT / "src" / "embedding_service" / "config.json"
-        print(f"Using config from: {config_path}")
-        model = train_embedding_model(
-            train_dataloader=train_dataloader,
-            test_dataloader=test_dataloader,
-            config_path=str(config_path),
-        )
-    else:
-        print("Loading existing model...")
-        model = torch.load(model_path)
-        model = model.to(device)
+    train_model(
+        db_path=db_path,
+        config_path=config_path,
+        model_path=model_path,
+        device=device,
+    )
 
     # # Generate embeddings and build index if they don't exist
     # index_path = Path("models/mnist_index.faiss")

@@ -7,7 +7,6 @@ from tqdm import tqdm
 
 import torch
 import json
-import shutil
 
 
 class ContrastiveLoss(torch.nn.Module):
@@ -164,11 +163,16 @@ def train_embedding_model(
         epoch_losses.append(avg_loss)
 
     # Save the trained model
-    save_dir = Path("training_outputs/model")
-    save_dir.mkdir(exist_ok=True)
+    save_dir = Path("src/embedding_service/model")
     torch.save(model.state_dict(), save_dir / "embedding_model.pth")
     print(f"Model saved to {save_dir / 'embedding_model.pth'}")
-    plot_losses(epoch_losses)
-    shutil.copytree(save_dir, Path("embedding_service/model"))
+
+    # Result logging
+    save_dir = Path("src/embedding_service/results")
+    save_dir.mkdir(exist_ok=True)
+    plot_losses(
+        epoch_losses=epoch_losses,
+        save_path=save_dir / "loss.png",
+    )
 
     return model
