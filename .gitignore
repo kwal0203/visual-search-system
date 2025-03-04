@@ -63,3 +63,4 @@ logs/
 config.json
 *.db
 sample_pairs/
+training_outputs/
