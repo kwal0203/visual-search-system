@@ -1,80 +1,94 @@
-from pathlib import Path
-from torchvision import datasets, transforms
-import numpy as np
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from src.data.models import Image, User, Base
+from torchvision import datasets, transforms
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy import create_engine
 from PIL import Image as PILImage
+from pathlib import Path
+
+import numpy as np
 
 
-def setup_mnist_database(db_url: str = "sqlite:///mnist.db"):
-    """Set up the database and load MNIST dataset."""
-    # Create database
-    engine = create_engine(db_url)
+def setup_mnist_database(db_path: str):
+    """Set up the database and MNIST user"""
+    engine = create_engine(f"sqlite:///{db_path}")
     Base.metadata.create_all(engine)
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
 
-    # Create a system user for MNIST
-    mnist_user = db.query(User).filter(User.username == "mnist_system").first()
-    if not mnist_user:
-        mnist_user = User(username="mnist_system", email="mnist@system.local")
-        db.add(mnist_user)
-        db.commit()
-        db.refresh(mnist_user)
+    try:
+        mnist_user = db.query(User).filter(User.username == "mnist_system").first()
+        if not mnist_user:
+            mnist_user = User(username="mnist_system", email="mnist@system.local")
+            db.add(mnist_user)
+            db.commit()
+    finally:
+        db.close()
 
-    return db, mnist_user
 
-
-def load_mnist(db, mnist_user, save_dir: str = "data/mnist"):
+def load_mnist(db_path: str, save_dir: str = "data/mnist"):
     """Download MNIST and store in database with file paths.
 
     Args:
-        db: Database session
-        mnist_user: User object for MNIST system
+        db_path: Path to the SQLite database file
         save_dir: Directory to save MNIST images
     """
-    # Create directories
-    save_dir = Path(save_dir)
-    save_dir.mkdir(parents=True, exist_ok=True)
+    # Create database session
+    engine = create_engine(f"sqlite:///{db_path}")
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
 
-    # Download MNIST
-    transform = transforms.Compose([transforms.ToTensor()])
-    train_dataset = datasets.MNIST(
-        "data", train=True, download=True, transform=transform
-    )
-    test_dataset = datasets.MNIST(
-        "data", train=False, download=True, transform=transform
-    )
+    try:
+        # Get or create MNIST system user
+        mnist_user = db.query(User).filter(User.username == "mnist_system").first()
+        if not mnist_user:
+            mnist_user = User(username="mnist_system", email="mnist@system.local")
+            db.add(mnist_user)
+            db.commit()
 
-    def process_dataset(dataset, split):
-        for idx, (img_tensor, label) in enumerate(dataset):
-            # Convert to PIL Image and save
-            img = transforms.ToPILImage()(img_tensor)
-            img_path = save_dir / f"{split}_{idx}.png"
-            img.save(img_path)
+        # Create directories
+        save_dir = Path(save_dir)
+        save_dir.mkdir(parents=True, exist_ok=True)
 
-            # Create database entry
-            db_image = Image(
-                user_id=mnist_user.user_id,
-                file_path=str(img_path),
-                digit_label=int(label),
-                is_mnist=True,
-                dataset_split=split,
-                tags=f'{{"digit": {label}}}',
-            )
-            db.add(db_image)
+        # Download MNIST
+        transform = transforms.Compose([transforms.ToTensor()])
+        train_dataset = datasets.MNIST(
+            "data", train=True, download=True, transform=transform
+        )
+        test_dataset = datasets.MNIST(
+            "data", train=False, download=True, transform=transform
+        )
 
-            if idx % 1000 == 0:
-                db.commit()
-                print(f"Processed {idx} images from {split} set")
+        def process_dataset(dataset, split):
+            for idx, (img_tensor, label) in enumerate(dataset):
+                # Convert to PIL Image and save
+                img = transforms.ToPILImage()(img_tensor)
+                img_path = save_dir / f"{split}_{idx}.png"
+                img.save(img_path)
 
-    # Process both splits
-    process_dataset(train_dataset, "train")
-    process_dataset(test_dataset, "test")
-    db.commit()
+                # Create database entry
+                db_image = Image(
+                    user_id=mnist_user.user_id,
+                    file_path=str(img_path),
+                    digit_label=int(label),
+                    is_mnist=True,
+                    dataset_split=split,
+                    tags=f'{{"digit": {label}}}',
+                )
+                db.add(db_image)
 
-    print("MNIST dataset loaded successfully")
+                if idx % 1000 == 0:
+                    db.commit()
+                    print(f"Processed {idx} images from {split} set")
+
+        # Process both splits
+        process_dataset(train_dataset, "train")
+        process_dataset(test_dataset, "test")
+        db.commit()
+
+        print("MNIST dataset loaded successfully")
+    finally:
+        # Always close the session when done
+        db.close()
 
 
 def generate_contrastive_pairs(db, num_pairs=10000, same_digit_ratio=0.5):
@@ -149,14 +163,14 @@ def save_sample_pairs(pairs, labels, db, num_samples=2):
         num_samples: Number of samples to save for each category (positive/negative)
     """
     # Save sample pairs to files
-    output_dir = Path("/training_outputs/sample_pairs")
-    output_dir.mkdir(exist_ok=True)
+    output_dir = Path("training_outputs/sample_pairs")
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     # Create subdirectories for positive and negative pairs
     pos_dir = output_dir / "positive_pairs"
     neg_dir = output_dir / "negative_pairs"
-    pos_dir.mkdir(exist_ok=True)
-    neg_dir.mkdir(exist_ok=True)
+    pos_dir.mkdir(parents=True, exist_ok=True)
+    neg_dir.mkdir(parents=True, exist_ok=True)
 
     def save_pair(img1_path, img2_path, pair_idx, is_positive=True):
         """Save a pair of images side by side"""
@@ -202,7 +216,7 @@ def save_sample_pairs(pairs, labels, db, num_samples=2):
 
 
 if __name__ == "__main__":
-    db, mnist_user = setup_mnist_database()
+    setup_mnist_database()
     load_mnist(db, mnist_user)
     pairs, labels = generate_contrastive_pairs(db)
     print(pairs)

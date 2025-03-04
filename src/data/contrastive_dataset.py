@@ -1,8 +1,10 @@
 from torch.utils.data import Dataset
 from PIL import Image
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from src.data.models import Image as ImageModel
 
 import numpy as np
-import sqlite3
 
 
 class ContrastivePairDatasetMNIST(Dataset):
@@ -12,32 +14,33 @@ class ContrastivePairDatasetMNIST(Dataset):
         self.transform = transform
 
         # Connect to DB and retrieve all filepaths and labels
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        engine = create_engine(f"sqlite:///{db_path}")
+        SessionLocal = sessionmaker(bind=engine)
+        db = SessionLocal()
 
-        cursor.execute(
-            """
-            SELECT file_path, digit_label FROM images
-            WHERE dataset_split = ? AND is_mnist = 1
-        """,
-            (self.dataset_split,),
-        )
+        try:
+            # Query images using SQLAlchemy ORM
+            images = (
+                db.query(ImageModel)
+                .filter(ImageModel.dataset_split == self.dataset_split)
+                .filter(ImageModel.is_mnist == True)
+                .all()
+            )
 
-        self.data = cursor.fetchall()
-        conn.close()
+            # Extract filepaths and labels
+            self.filepaths = [img.file_path for img in images]
+            self.targets = np.array([img.digit_label for img in images])
 
-        # Extract filepaths and labels
-        self.filepaths, self.targets = zip(*self.data)
-        self.targets = np.array(self.targets)
+            # Identify unique classes
+            self.classes = np.unique(self.targets)
+            print(self.classes)
 
-        # Identify unique classes
-        self.classes = np.unique(self.targets)
-        print(self.classes)
-
-        # Create mapping: class -> list of indices
-        self.class_indices = {}
-        for cls in self.classes:
-            self.class_indices[cls] = np.where(self.targets == cls)[0].tolist()
+            # Create mapping: class -> list of indices
+            self.class_indices = {}
+            for cls in self.classes:
+                self.class_indices[cls] = np.where(self.targets == cls)[0].tolist()
+        finally:
+            db.close()
 
     def __len__(self):
         return len(self.filepaths)

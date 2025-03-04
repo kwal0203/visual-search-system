@@ -19,6 +19,7 @@ from src.search.build_index import (
 
 import matplotlib.pyplot as plt
 import torch
+import os
 
 
 # Get the project root directory (where src directory is located)
@@ -48,25 +49,20 @@ def display_search_results(query_image_path, similar_images, num_results=5):
     plt.show()
 
 
-def get_dataloader(db, mnist_user):
-    load_mnist(db, mnist_user)
-    pairs, labels = generate_contrastive_pairs(
-        db,
-        num_pairs=10000,
-        same_digit_ratio=0.5,
-    )
+def get_dataloader(mnist_user, db_path):
+    load_mnist(db_path, mnist_user)
 
     # Create dataset and DataLoader
     transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     )
     train_dataset = ContrastivePairDatasetMNIST(
-        db_path="/src/training_outputs/data/mnist.db",
+        db_path=db_path,
         dataset_split="train",
         transform=transform,
     )
     test_dataset = ContrastivePairDatasetMNIST(
-        db_path="/src/training_outputs/data/mnist.db",
+        db_path=db_path,
         dataset_split="test",
         transform=transform,
     )
@@ -85,8 +81,10 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    db, mnist_user = setup_mnist_database()
-    train_dataloader, test_dataloader = get_dataloader(db, mnist_user)
+    db_path = "training_outputs/data"
+    os.makedirs(db_path, exist_ok=True)
+    setup_mnist_database(db_path)
+    train_dataloader, test_dataloader = get_dataloader(db_path)
 
     # Check if model exists, if not train it
     model_path = PROJECT_ROOT / "training_outputs" / "model" / "embedding_model.pth"
