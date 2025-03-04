@@ -60,3 +60,6 @@ Thumbs.db
 *.ckpt
 index/
 logs/
+config.json
+*.db
+sample_pairs/

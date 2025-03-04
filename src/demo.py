@@ -61,17 +61,21 @@ def get_dataloader(db, mnist_user):
         [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     )
     train_dataset = ContrastivePairDatasetMNIST(
-        db_path="mnist.db", dataset_split="train", transform=transform
+        db_path="/src/training_outputs/data/mnist.db",
+        dataset_split="train",
+        transform=transform,
     )
     test_dataset = ContrastivePairDatasetMNIST(
-        db_path="mnist.db", dataset_split="test", transform=transform
+        db_path="/src/training_outputs/data/mnist.db",
+        dataset_split="test",
+        transform=transform,
     )
 
     train_sampler = BalancedRandomPairBatchSampler(train_dataset)
     test_sampler = BalancedRandomPairBatchSampler(test_dataset)
 
-    train_dataloader = DataLoader(dataset, batch_sampler=train_sampler)
-    test_dataloader = DataLoader(dataset, batch_sampler=test_sampler)
+    train_dataloader = DataLoader(train_dataset, batch_sampler=train_sampler)
+    test_dataloader = DataLoader(test_dataset, batch_sampler=test_sampler)
 
     return train_dataloader, test_dataloader
 
@@ -85,7 +89,7 @@ def main():
     train_dataloader, test_dataloader = get_dataloader(db, mnist_user)
 
     # Check if model exists, if not train it
-    model_path = PROJECT_ROOT / "models" / "embedding_model.pth"
+    model_path = PROJECT_ROOT / "training_outputs" / "model" / "embedding_model.pth"
     model_path.parent.mkdir(
         exist_ok=True
     )  # Create models directory if it doesn't exist

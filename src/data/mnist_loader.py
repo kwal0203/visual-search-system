@@ -149,7 +149,7 @@ def save_sample_pairs(pairs, labels, db, num_samples=2):
         num_samples: Number of samples to save for each category (positive/negative)
     """
     # Save sample pairs to files
-    output_dir = Path("sample_pairs")
+    output_dir = Path("/training_outputs/sample_pairs")
     output_dir.mkdir(exist_ok=True)
 
     # Create subdirectories for positive and negative pairs

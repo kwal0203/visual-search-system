@@ -1,7 +1,7 @@
 {
     "num_epochs": 30,
     "embedding_dim": 32,
-    "learning_rate": 3e-4,
+    "learning_rate": 3e-7,
     "margin": 1.0,
     "mode": "pairs",
     "device": "cpu",
