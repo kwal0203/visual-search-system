@@ -2,7 +2,7 @@ from torch.utils.data import Dataset
 from PIL import Image
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from src.data.models import Image as ImageModel
+from src.storage_service.models import Image as ImageModel
 
 import numpy as np
 

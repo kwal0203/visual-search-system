@@ -1,7 +1,7 @@
 import torch
 from PIL import Image as PILImage
 from torchvision import transforms
-from src.data.models import Image
+from src.storage_service.models import Image
 
 
 def search_similar_images(query_image_id, db, model, index, k=5, device="cuda"):

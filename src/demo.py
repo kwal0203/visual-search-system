@@ -1,17 +1,17 @@
-from src.data.random_sampler import BalancedRandomPairBatchSampler
+from src.storage_service.random_sampler import BalancedRandomPairBatchSampler
 from src.search.search import search_similar_images
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from PIL import Image as PILImage
 from pathlib import Path
 
-from src.data.mnist_loader import (
+from src.storage_service.mnist_loader import (
     setup_mnist_database,
     load_mnist,
     generate_contrastive_pairs,
 )
-from src.data.contrastive_dataset import ContrastivePairDatasetMNIST
-from src.embeddings.train import train_embedding_model
+from src.storage_service.contrastive_dataset import ContrastivePairDatasetMNIST
+from src.embedding_service.train import train_embedding_model
 from src.search.build_index import (
     generate_embeddings,
     build_search_index,
@@ -80,13 +80,21 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
-    db_directory = "training_outputs/data"
-    db_path = f"{db_directory}/mnist.db"
-    save_dir = "data/mnist"
-    if not Path(db_directory).exists():
-        os.makedirs(db_directory, exist_ok=True)
+    # Raw data is stored in src/storage_service/raw
+    # Processed data is stored in src/storage_service/processed
+    # Trained model is stored in src/embedding_service/model
+
+    db_path = f"src/storage_service/mnist.db"
+    save_dir = "src/storage_service/processed"
+    raw_dir = "src/storage_service/raw"
+
+    if not Path(db_path).exists():
+        os.makedirs(save_dir, exist_ok=True)
+        os.makedirs(raw_dir, exist_ok=True)
         setup_mnist_database(db_path=db_path)
-        load_mnist(db_path=db_path, save_dir=save_dir)
+        load_mnist(db_path=db_path, save_dir=save_dir, raw_dir=raw_dir)
+
+    return
 
     train_dataloader, test_dataloader = get_dataloader(
         db_path=db_path, save_dir=save_dir
@@ -100,7 +108,7 @@ def main():
 
     if not model_path.exists():
         print("Training embedding model...")
-        config_path = PROJECT_ROOT / "src" / "embeddings" / "config.json"
+        config_path = PROJECT_ROOT / "src" / "embedding_service" / "config.json"
         print(f"Using config from: {config_path}")
         model = train_embedding_model(
             train_dataloader=train_dataloader,

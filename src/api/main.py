@@ -9,7 +9,7 @@ from PIL import Image
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 
-from ..data.image_processor import get_preprocessor
+from ..storage_service.image_processor import get_preprocessor
 from ..embeddings.models import get_embedding_model
 from ..indexing.index import get_index
 

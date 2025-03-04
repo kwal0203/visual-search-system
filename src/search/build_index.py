@@ -6,9 +6,9 @@ from tqdm import tqdm
 from PIL import Image as PILImage
 from torchvision import transforms
 
-from src.embeddings.models import get_embedding_model
-from src.data.mnist_loader import setup_mnist_database
-from src.data.models import Image
+from src.embedding_service.models import get_embedding_model
+from src.storage_service.mnist_loader import setup_mnist_database
+from src.storage_service.models import Image
 
 
 def generate_embeddings(model, db, device="cuda"):

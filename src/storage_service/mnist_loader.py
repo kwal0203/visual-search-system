@@ -1,4 +1,4 @@
-from src.data.models import Image, User, Base
+from src.storage_service.models import Image, User, Base
 from torchvision import datasets, transforms
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
@@ -25,7 +25,7 @@ def setup_mnist_database(db_path: str):
         db.close()
 
 
-def load_mnist(db_path: str, save_dir: str):
+def load_mnist(db_path: str, save_dir: str, raw_dir: str):
     """Download MNIST and store in database with file paths.
 
     Args:
@@ -48,16 +48,16 @@ def load_mnist(db_path: str, save_dir: str):
             db.commit()
 
         # Create directories
-        save_dir = Path(save_dir)
-        save_dir.mkdir(parents=True, exist_ok=True)
+        # save_dir = Path(save_dir)
+        # save_dir.mkdir(parents=True, exist_ok=True)
 
         # Download MNIST
         transform = transforms.Compose([transforms.ToTensor()])
         train_dataset = datasets.MNIST(
-            "data", train=True, download=True, transform=transform
+            raw_dir, train=True, download=True, transform=transform
         )
         test_dataset = datasets.MNIST(
-            "data", train=False, download=True, transform=transform
+            raw_dir, train=False, download=True, transform=transform
         )
 
         def process_dataset(dataset, split):
