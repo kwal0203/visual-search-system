@@ -65,7 +65,6 @@ def main():
         db_path=db_path,
         config_path=config_path,
         model_path=model_path,
-        device=device,
     )
 
     # # Generate embeddings and build index if they don't exist
