@@ -10,11 +10,11 @@ import numpy as np
 
 def setup_mnist_database(db_path: str):
     """Set up the database and MNIST user"""
+    print(f"Setting up MNIST database at {db_path}")
     engine = create_engine(f"sqlite:///{db_path}")
     Base.metadata.create_all(engine)
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
-
     try:
         mnist_user = db.query(User).filter(User.username == "mnist_system").first()
         if not mnist_user:
@@ -25,13 +25,15 @@ def setup_mnist_database(db_path: str):
         db.close()
 
 
-def load_mnist(db_path: str, save_dir: str = "data/mnist"):
+def load_mnist(db_path: str, save_dir: str):
     """Download MNIST and store in database with file paths.
 
     Args:
         db_path: Path to the SQLite database file
         save_dir: Directory to save MNIST images
     """
+    print(f"Loading MNIST dataset to {db_path} and saving to {save_dir}")
+
     # Create database session
     engine = create_engine(f"sqlite:///{db_path}")
     SessionLocal = sessionmaker(bind=engine)
