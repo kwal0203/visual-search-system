@@ -174,5 +174,3 @@ def train_embedding_model(
         epoch_losses=epoch_losses,
         save_path=save_dir / "loss.png",
     )
-
-    return model

@@ -9,25 +9,56 @@ from torchvision import transforms
 from src.embedding_service.models import get_embedding_model
 from src.storage_service.mnist_loader import setup_mnist_database
 from src.storage_service.models import Image
+from src.storage_service.service import get_images
+
+import json
+from typing import Optional
 
 
-def generate_embeddings(model, db, device="cuda"):
+def load_training_config(config_path: Optional[str] = None) -> dict:
+    """Load training configuration from a JSON file.
+
+    Args:
+        config_path: Path to the JSON config file. If None, uses default config.
+
+    Returns:
+        Dictionary containing training configuration.
+    """
+    config_path = (
+        Path(config_path) if config_path else Path(__file__).parent / "config.json"
+    )
+
+    try:
+        with config_path.open("r") as f:
+            config = json.load(f)
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Config file not found at {config_path}")
+
+    return config
+
+
+def generate_embeddings(model_path: str, config_path: str):
     """Generate embeddings for all images in the database."""
     transform = transforms.Compose(
         [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     )
 
-    # Get all images
-    images = db.query(Image).filter(Image.is_mnist == True).all()
+    config = load_training_config(config_path)
+
+    # Get all images from training set
+    images = get_images(dataset_split="train")
     embeddings = []
     image_ids = []
 
+    model = get_embedding_model(model_type="cnn")
+    model.load_state_dict(torch.load(model_path))
+    model = model.to(config["device"])
     model.eval()
     with torch.no_grad():
         for img in tqdm(images, desc="Generating embeddings"):
             # Load and transform image
             image = PILImage.open(img.file_path)
-            image = transform(image).unsqueeze(0).to(device)
+            image = transform(image).unsqueeze(0).to(config["device"])
 
             # Generate embedding
             embedding = model(image)
@@ -38,10 +69,10 @@ def generate_embeddings(model, db, device="cuda"):
     return embeddings, image_ids
 
 
-def build_search_index(embeddings, save_dir="models"):
+def build_search_index(embeddings, index_path: str):
     """Build and save FAISS index for fast similarity search."""
-    save_dir = Path(save_dir)
-    save_dir.mkdir(exist_ok=True)
+    index_path = Path(index_path)
+    index_path.mkdir(exist_ok=True)
 
     # Initialize FAISS index
     dimension = embeddings.shape[1]
@@ -51,8 +82,8 @@ def build_search_index(embeddings, save_dir="models"):
     index.add(embeddings.astype(np.float32))
 
     # Save the index
-    faiss.write_index(index, str(save_dir / "mnist_index.faiss"))
-    print(f"Search index saved to {save_dir / 'mnist_index.faiss'}")
+    faiss.write_index(index, index_path)
+    print(f"Search index saved to {index_path}")
     return index
 
 

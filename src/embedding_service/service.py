@@ -49,8 +49,10 @@ def train_model(
     model_path: str,
 ):
     """API ENDPOINT"""
-    if not Path(model_path).exists():
-        print("Training embedding model...")
+    if Path(model_path).exists():
+        print("Model exists. Load from model_path...")
+    else:
+        print("Model does not exist. Training new embedding model...")
         transform = transforms.Compose(
             [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
         )
@@ -59,38 +61,8 @@ def train_model(
             db_path=db_path, transform=transform
         )
 
-        return train_embedding_model(
+        train_embedding_model(
             train_dataloader=train_dataloader,
             test_dataloader=test_dataloader,
             config_path=config_path,
         )
-
-    print("Loading existing model...")
-    return torch.load(model_path)
-
-
-# train_dataloader, test_dataloader = get_dataloader(
-#     db_path=db_path, save_dir=save_dir
-# )
-
-# # Check if model exists, if not train it
-# model_path = (
-#     PROJECT_ROOT / "src" / "embedding_service" / "model" / "embedding_model.pth"
-# )
-# model_path.parent.mkdir(
-#     exist_ok=True
-# )  # Create models directory if it doesn't exist
-
-# if not model_path.exists():
-#     print("Training embedding model...")
-#     config_path = PROJECT_ROOT / "src" / "embedding_service" / "config.json"
-#     print(f"Using config from: {config_path}")
-#     model = train_embedding_model(
-#         train_dataloader=train_dataloader,
-#         test_dataloader=test_dataloader,
-#         config_path=str(config_path),
-#     )
-# else:
-#     print("Loading existing model...")
-#     model = torch.load(model_path)
-#     model = model.to(device)

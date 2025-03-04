@@ -66,16 +66,19 @@ def main():
         config_path=config_path,
         model_path=model_path,
     )
+    from src.index_service.build_index import generate_embeddings, build_search_index
+    import faiss
 
-    # # Generate embeddings and build index if they don't exist
-    # index_path = Path("models/mnist_index.faiss")
-    # if not index_path.exists():
-    #     print("Generating embeddings and building search index...")
-    #     embeddings, image_ids = generate_embeddings(model, db, device)
-    #     index = build_search_index(embeddings)
-    # else:
-    #     print("Loading existing index...")
-    #     index = torch.load(index_path)
+    # Generate embeddings and build index if they don't exist
+    index_path = Path("src/index_service/models/mnist_index.faiss")
+    if not index_path.exists():
+        print("Generating embeddings and building search index...")
+
+        embeddings, image_ids = generate_embeddings(model_path, config_path)
+        index = build_search_index(embeddings, index_path)
+    else:
+        print("Loading existing index...")
+        index = faiss.read_index(index_path)
 
     # # Perform a sample search
     # print("\nPerforming sample search...")
