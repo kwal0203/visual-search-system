@@ -1,11 +1,9 @@
 from src.storage_service.service import setup_storage
+from src.index_service.service import build_index
 from PIL import Image as PILImage
 from pathlib import Path
 from src.embedding_service.service import train_model
-from src.index_service.build_index import (
-    generate_embeddings,
-    build_search_index,
-)
+from src.search_service.search import search_similar_images
 
 import matplotlib.pyplot as plt
 import torch
@@ -43,11 +41,13 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
 
+    # Setup object storage
     db_path = f"src/storage_service/mnist.db"
     save_dir = "src/storage_service/processed"
     raw_dir = "src/storage_service/raw"
     setup_storage(db_path=db_path, save_dir=save_dir, raw_dir=raw_dir)
 
+    # Train embedding model if required
     config_path = PROJECT_ROOT / "src" / "embedding_service" / "config.json"
     model_path = (
         PROJECT_ROOT / "src" / "embedding_service" / "model" / "embedding_model.pth"
@@ -57,35 +57,36 @@ def main():
         config_path=config_path,
         model_path=model_path,
     )
-    from src.index_service.build_index import generate_embeddings, build_search_index
-    import faiss
 
     # Generate embeddings and build index if they don't exist
-    index_path = Path("src/index_service/models/mnist_index")
-    if not index_path.exists():
-        print("Generating embeddings and building search index...")
-        os.makedirs(index_path, exist_ok=True)
-        embeddings, image_ids = generate_embeddings(model_path, config_path)
-        index = build_search_index(embeddings, index_path)
-    else:
-        print("Loading existing index...")
-        index = faiss.read_index(index_path)
+    index_path = "src/index_service/models/mnist_index"
+    build_index(model_path=model_path, config_path=config_path, index_path=index_path)
 
-    # # Perform a sample search
-    # print("\nPerforming sample search...")
-    # # Get a random test image
-    # query_image = (
-    #     db.query(DBImage)
-    #     .filter(DBImage.is_mnist == True, DBImage.dataset_split == "test")
-    #     .first()
-    # )
+    # Perform a sample search
+    print("\nPerforming sample search...")
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from src.storage_service.models import Image as ImageModel
 
-    # similar_images = search_similar_images(
-    #     query_image.image_id, db, model, index, k=5, device=device
-    # )
+    # Get a random test image
+    engine = create_engine(f"sqlite:///{db_path}")
+    SessionLocal = sessionmaker(bind=engine)
+    db = SessionLocal()
+    query_image = (
+        db.query(ImageModel)
+        .filter(ImageModel.is_mnist == True, ImageModel.dataset_split == "test")
+        .first()
+    )
+    db.close()
 
-    # # Display results
-    # display_search_results(query_image.file_path, similar_images)
+    similar_images = search_similar_images(
+        query_image=query_image,
+        db_path=db_path,
+        model_path=model_path,
+        index_path=index_path,
+        config_path=config_path,
+        k=5,
+    )
 
 
 if __name__ == "__main__":

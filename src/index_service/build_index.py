@@ -7,8 +7,6 @@ from PIL import Image as PILImage
 from torchvision import transforms
 
 from src.embedding_service.models import get_embedding_model
-from src.storage_service.mnist_loader import setup_mnist_database
-from src.storage_service.models import Image
 from src.storage_service.service import get_images
 
 import json
@@ -71,7 +69,7 @@ def generate_embeddings(model_path: str, config_path: str):
     return embeddings, image_ids
 
 
-def build_search_index(embeddings, index_path: str):
+def build_search_index(embeddings, image_ids, index_path: str):
     """Build and save FAISS index for fast similarity search."""
     print("Building search index...")
 
@@ -79,14 +77,15 @@ def build_search_index(embeddings, index_path: str):
     dimension = embeddings.shape[1]
     index = faiss.IndexFlatL2(dimension)  # L2 distance
 
-    # Add vectors to the index
-    index.add(embeddings.astype(np.float32))
+    # Add vectors to the index with their original IDs
+    index.add_with_ids(
+        embeddings.astype(np.float32), np.array(image_ids).astype(np.int64)
+    )
 
     # Save the index
     index_path = str(index_path) + "/index.faiss"
     faiss.write_index(index, index_path)
     print(f"Search index saved to {index_path}")
-    return index
 
 
 def load_search_system(
@@ -105,27 +104,3 @@ def load_search_system(
     index = faiss.read_index(index_path)
 
     return model, index
-
-
-if __name__ == "__main__":
-    # Set up
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Using device: {device}")
-
-    db, _ = setup_mnist_database()
-
-    # Load model
-    model = get_embedding_model(model_type="cnn")
-    model.load_state_dict(torch.load("models/embedding_model.pth"))
-    model = model.to(device)
-
-    # Generate embeddings and build index
-    print("Generating embeddings for all images...")
-    embeddings, image_ids = generate_embeddings(model, db, device)
-
-    print("Building search index...")
-    index = build_search_index(embeddings)
-
-    # Save image IDs for later reference
-    np.save("models/image_ids.npy", np.array(image_ids))
-    print("Image IDs saved to models/image_ids.npy")

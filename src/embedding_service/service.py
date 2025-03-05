@@ -1,5 +1,4 @@
 from src.embedding_service.train import train_embedding_model
-from src.embedding_service.models import get_embedding_model
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from pathlib import Path
