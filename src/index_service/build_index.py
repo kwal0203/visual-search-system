@@ -57,7 +57,7 @@ def generate_embeddings(model_path: str, config_path: str):
     model = model.to(config["device"])
     model.eval()
     with torch.no_grad():
-        for img in tqdm(images[:32], desc="Generating embeddings"):
+        for img in tqdm(images, desc="Generating embeddings"):
             # Load and transform image
             image = PILImage.open(img.file_path)
             image = transform(image).unsqueeze(0).to(config["device"])
@@ -67,10 +67,7 @@ def generate_embeddings(model_path: str, config_path: str):
             embeddings.append(embedding.cpu().numpy())
             image_ids.append(img.image_id)
 
-    print(len(embeddings))
-    print(len(image_ids))
     embeddings = np.vstack(embeddings)
-    print(embeddings.shape)
     return embeddings, image_ids
 
 
