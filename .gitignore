@@ -68,3 +68,4 @@ training_outputs/
 src/storage_service/raw/*
 src/storage_service/processed/*
 src/embedding_service/model/*.pth
+*.faiss

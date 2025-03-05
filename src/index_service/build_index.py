@@ -43,19 +43,21 @@ def generate_embeddings(model_path: str, config_path: str):
         [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
     )
 
-    config = load_training_config(config_path)
-
     # Get all images from training set
     images = get_images(dataset_split="train")
     embeddings = []
     image_ids = []
 
-    model = get_embedding_model(model_type="cnn")
+    config = load_training_config(config_path)
+    model = get_embedding_model(
+        model_type=config["model_type"],
+        embedding_dim=config["embedding_dim"],
+    )
     model.load_state_dict(torch.load(model_path))
     model = model.to(config["device"])
     model.eval()
     with torch.no_grad():
-        for img in tqdm(images, desc="Generating embeddings"):
+        for img in tqdm(images[:32], desc="Generating embeddings"):
             # Load and transform image
             image = PILImage.open(img.file_path)
             image = transform(image).unsqueeze(0).to(config["device"])
@@ -65,14 +67,16 @@ def generate_embeddings(model_path: str, config_path: str):
             embeddings.append(embedding.cpu().numpy())
             image_ids.append(img.image_id)
 
+    print(len(embeddings))
+    print(len(image_ids))
     embeddings = np.vstack(embeddings)
+    print(embeddings.shape)
     return embeddings, image_ids
 
 
 def build_search_index(embeddings, index_path: str):
     """Build and save FAISS index for fast similarity search."""
-    index_path = Path(index_path)
-    index_path.mkdir(exist_ok=True)
+    print("Building search index...")
 
     # Initialize FAISS index
     dimension = embeddings.shape[1]
@@ -82,6 +86,7 @@ def build_search_index(embeddings, index_path: str):
     index.add(embeddings.astype(np.float32))
 
     # Save the index
+    index_path = str(index_path) + "/index.faiss"
     faiss.write_index(index, index_path)
     print(f"Search index saved to {index_path}")
     return index

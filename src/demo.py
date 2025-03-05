@@ -1,17 +1,8 @@
-from src.embedding_service.random_sampler import BalancedRandomPairBatchSampler
 from src.storage_service.service import setup_storage
-from src.search.search import search_similar_images
-from torch.utils.data import DataLoader
-from torchvision import transforms
 from PIL import Image as PILImage
 from pathlib import Path
-from src.storage_service.mnist_loader import (
-    setup_mnist_database,
-    load_mnist,
-    generate_contrastive_pairs,
-)
 from src.embedding_service.service import train_model
-from src.search.build_index import (
+from src.index_service.build_index import (
     generate_embeddings,
     build_search_index,
 )
@@ -70,10 +61,10 @@ def main():
     import faiss
 
     # Generate embeddings and build index if they don't exist
-    index_path = Path("src/index_service/models/mnist_index.faiss")
+    index_path = Path("src/index_service/models/mnist_index")
     if not index_path.exists():
         print("Generating embeddings and building search index...")
-
+        os.makedirs(index_path, exist_ok=True)
         embeddings, image_ids = generate_embeddings(model_path, config_path)
         index = build_search_index(embeddings, index_path)
     else:
