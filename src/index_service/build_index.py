@@ -69,7 +69,7 @@ def generate_embeddings(model_path: str, config_path: str):
     return embeddings, image_ids
 
 
-def build_search_index(embeddings, image_ids, index_path: str):
+def build_search_index(embeddings, index_path: str):
     """Build and save FAISS index for fast similarity search."""
     print("Building search index...")
 
@@ -77,10 +77,8 @@ def build_search_index(embeddings, image_ids, index_path: str):
     dimension = embeddings.shape[1]
     index = faiss.IndexFlatL2(dimension)  # L2 distance
 
-    # Add vectors to the index with their original IDs
-    index.add_with_ids(
-        embeddings.astype(np.float32), np.array(image_ids).astype(np.int64)
-    )
+    # Add vectors to the index
+    index.add(embeddings.astype(np.float32))
 
     # Save the index
     index_path = str(index_path) + "/index.faiss"

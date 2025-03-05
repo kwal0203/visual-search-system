@@ -64,7 +64,7 @@ def main():
 
     # Perform a sample search
     print("\nPerforming sample search...")
-    from sqlalchemy import create_engine
+    from sqlalchemy import create_engine, func
     from sqlalchemy.orm import sessionmaker
     from src.storage_service.models import Image as ImageModel
 
@@ -75,8 +75,10 @@ def main():
     query_image = (
         db.query(ImageModel)
         .filter(ImageModel.is_mnist == True, ImageModel.dataset_split == "test")
+        .order_by(func.random())
         .first()
     )
+    print(f"Query image: {query_image.digit_label}")
     db.close()
 
     similar_images = search_similar_images(

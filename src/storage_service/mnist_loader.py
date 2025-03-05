@@ -47,10 +47,6 @@ def load_mnist(db_path: str, save_dir: str, raw_dir: str):
             db.add(mnist_user)
             db.commit()
 
-        # Create directories
-        # save_dir = Path(save_dir)
-        # save_dir.mkdir(parents=True, exist_ok=True)
-
         # Convert save_dir to Path object
         save_dir = Path(save_dir)
 

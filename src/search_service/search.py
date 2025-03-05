@@ -10,6 +10,7 @@ from pathlib import Path
 
 import torch
 import json
+import os
 
 
 def load_training_config(config_path: Optional[str] = None) -> dict:
@@ -55,6 +56,10 @@ def search_similar_images(
     with torch.no_grad():
         config = load_training_config(config_path)
         image = PILImage.open(query_image.file_path)
+
+        image_path = Path("/home/kwal0203/results") / f"query.png"
+        image.save(image_path)
+
         image = transform(image).unsqueeze(0).to(config["device"])
         model = get_embedding_model(
             model_type=config["model_type"],
@@ -70,12 +75,12 @@ def search_similar_images(
     index = read_index(index_path + "/index.faiss")
     distances, indices = index.search(query_embedding, k)
     print(f"Similar indices: {indices}")
+    print(f"Distances: {distances}")
 
     # Get the corresponding images
     similar_images = []
     for idx in indices[0]:
-        img = db.query(Image).filter(Image.image_id == idx).first()
-        print(img)
+        img = db.query(Image).filter(Image.image_id == int(idx + 1)).first()
         if img:
             similar_images.append(
                 {
@@ -85,14 +90,12 @@ def search_similar_images(
                 }
             )
 
-        # save image as .png in /tmp/results
-        image_path = Path("/tmp/results") / f"{img.image_id}.png"
-        with open(image_path, "wb") as f:
-            f.write(img.file_path.read())
+        # save image as .png in /tmp/results using PIL
+        image_path = Path("/home/kwal0203/results") / f"{img.image_id}.png"
+        os.makedirs(image_path.parent, exist_ok=True)
+        print(f"{img.file_path}")
+        source_image = PILImage.open(img.file_path)
+        source_image.save(image_path)
     db.close()
 
-    # for image in similar_images:
-    #     print(
-    #         f"Image ID: {image['image_id']}, File Path: {image['file_path']}, Digit: {image['digit']}"
-    #     )
     return similar_images

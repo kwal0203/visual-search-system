@@ -12,7 +12,7 @@ def build_index(model_path: str, config_path: str, index_path: str) -> None:
         print("Generating embeddings and building search index...")
         os.makedirs(index_path, exist_ok=True)
         embeddings, image_ids = generate_embeddings(model_path, config_path)
-        build_search_index(embeddings, image_ids, index_path)
+        build_search_index(embeddings, index_path)
     else:
         print(f"Index already exists at {index_path}...")
 
