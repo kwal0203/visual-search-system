@@ -1,38 +1,15 @@
 from src.embedding_service.models import get_embedding_model
-from src.index_service.service import read_index
+from src.index_service.service import load_index
+from src.util.utils import load_training_config
 from src.storage_service.models import Image
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from torchvision import transforms
 from PIL import Image as PILImage
-from typing import Optional
 from pathlib import Path
 
 import torch
-import json
 import os
-
-
-def load_training_config(config_path: Optional[str] = None) -> dict:
-    """Load training configuration from a JSON file.
-
-    Args:
-        config_path: Path to the JSON config file. If None, uses default config.
-
-    Returns:
-        Dictionary containing training configuration.
-    """
-    config_path = (
-        Path(config_path) if config_path else Path(__file__).parent / "config.json"
-    )
-
-    try:
-        with config_path.open("r") as f:
-            config = json.load(f)
-    except FileNotFoundError:
-        raise FileNotFoundError(f"Config file not found at {config_path}")
-
-    return config
 
 
 def search_similar_images(
@@ -71,13 +48,14 @@ def search_similar_images(
         query_embedding = model(image).cpu().numpy()
 
     # Search in the index
-    print(f"READING {index_path + "/index.faiss"}")
-    index = read_index(index_path + "/index.faiss")
+    index = load_index(index_path + "/index.faiss")
     distances, indices = index.search(query_embedding, k)
+
+    print(f"READING {index_path + "/index.faiss"}")
     print(f"Similar indices: {indices}")
     print(f"Distances: {distances}")
 
-    # Get the corresponding images
+    # Get the corresponding images. Embedding index numbers off by 1 compared with database image ids.
     similar_images = []
     for idx in indices[0]:
         img = db.query(Image).filter(Image.image_id == int(idx + 1)).first()
@@ -93,7 +71,6 @@ def search_similar_images(
         # save image as .png in /tmp/results using PIL
         image_path = Path("/home/kwal0203/results") / f"{img.image_id}.png"
         os.makedirs(image_path.parent, exist_ok=True)
-        print(f"{img.file_path}")
         source_image = PILImage.open(img.file_path)
         source_image.save(image_path)
     db.close()

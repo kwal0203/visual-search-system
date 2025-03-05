@@ -5,6 +5,8 @@ from pathlib import Path
 from PIL import Image
 from src.embedding_service.contrastive_dataset import ContrastivePairDatasetMNIST
 from src.embedding_service.random_sampler import BalancedRandomPairBatchSampler
+from src.util.utils import get_transform
+from src.util.utils import load_training_config
 
 import torch
 
@@ -52,10 +54,8 @@ def train_model(
         print("Model exists. Load from model_path...")
     else:
         print("Model does not exist. Training new embedding model...")
-        transform = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
-        )
-
+        training_config = load_training_config(config_path)
+        transform = get_transform(name="mnist")
         train_dataloader, test_dataloader = get_dataloader(
             db_path=db_path, transform=transform
         )
@@ -63,5 +63,5 @@ def train_model(
         train_embedding_model(
             train_dataloader=train_dataloader,
             test_dataloader=test_dataloader,
-            config_path=config_path,
+            config=training_config,
         )

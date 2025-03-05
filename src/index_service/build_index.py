@@ -84,21 +84,3 @@ def build_search_index(embeddings, index_path: str):
     index_path = str(index_path) + "/index.faiss"
     faiss.write_index(index, index_path)
     print(f"Search index saved to {index_path}")
-
-
-def load_search_system(
-    model_path="models/embedding_model.pth",
-    index_path="models/mnist_index.faiss",
-    device="cuda",
-):
-    """Load the trained model and search index."""
-    # Load model
-    model = get_embedding_model(model_type="cnn")
-    model.load_state_dict(torch.load(model_path))
-    model = model.to(device)
-    model.eval()
-
-    # Load index
-    index = faiss.read_index(index_path)
-
-    return model, index

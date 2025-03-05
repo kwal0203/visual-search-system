@@ -17,5 +17,5 @@ def build_index(model_path: str, config_path: str, index_path: str) -> None:
         print(f"Index already exists at {index_path}...")
 
 
-def read_index(index_path: str) -> faiss.IndexFlatL2:
+def load_index(index_path: str) -> faiss.IndexFlatL2:
     return faiss.read_index(index_path)
