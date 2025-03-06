@@ -2,7 +2,7 @@ from src.storage_service.service import setup_storage
 from src.index_service.service import build_index
 from PIL import Image as PILImage
 from pathlib import Path
-from src.embedding_service.service import train_model
+from src.embedding_service.service import train_embedding_model
 from src.search_service.search import search_similar_images
 
 import matplotlib.pyplot as plt
@@ -42,25 +42,17 @@ def main():
     print(f"Using device: {device}")
 
     # Setup object storage
-    db_path = f"src/storage_service/mnist.db"
-    save_dir = "src/storage_service/processed"
-    raw_dir = "src/storage_service/raw"
-    setup_storage(db_path=db_path, save_dir=save_dir, raw_dir=raw_dir)
+    setup_storage(
+        db_path="src/storage_service/mnist.db",
+        save_dir="src/storage_service/processed",
+        raw_dir="src/storage_service/raw",
+    )
 
     # Train embedding model if required
-    config_path = PROJECT_ROOT / "src" / "embedding_service" / "config.json"
-    model_path = (
-        PROJECT_ROOT / "src" / "embedding_service" / "model" / "embedding_model.pth"
-    )
-    train_model(
-        db_path=db_path,
-        config_path=config_path,
-        model_path=model_path,
-    )
+    train_embedding_model()
 
     # Generate embeddings and build index if they don't exist
-    index_path = "src/index_service/models/mnist_index"
-    build_index(model_path=model_path, config_path=config_path, index_path=index_path)
+    build_index()
 
     # Perform a sample search
     print("\nPerforming sample search...")
@@ -69,7 +61,7 @@ def main():
     from src.storage_service.models import Image as ImageModel
 
     # Get a random test image
-    engine = create_engine(f"sqlite:///{db_path}")
+    engine = create_engine(f"sqlite:///src/storage_service/mnist.db")
     SessionLocal = sessionmaker(bind=engine)
     db = SessionLocal()
     query_image = (
@@ -81,14 +73,7 @@ def main():
     print(f"Query image: {query_image.digit_label}")
     db.close()
 
-    similar_images = search_similar_images(
-        query_image=query_image,
-        db_path=db_path,
-        model_path=model_path,
-        index_path=index_path,
-        config_path=config_path,
-        k=5,
-    )
+    _ = search_similar_images(query_image=query_image)
 
 
 if __name__ == "__main__":

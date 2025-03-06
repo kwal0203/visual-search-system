@@ -1,11 +1,36 @@
+from src.embedding_service.random_sampler import BalancedRandomPairBatchSampler
+from src.embedding_service.contrastive_dataset import ContrastivePairDatasetMNIST
 from src.embedding_service.models import get_embedding_model
 from src.embedding_service.util import plot_losses
+from src.util.utils import get_transform
 from torch.utils.data import DataLoader
-from typing import Dict
+from torchvision import transforms
 from pathlib import Path
+from typing import Dict
 from tqdm import tqdm
 
 import torch
+
+
+def get_dataloader(db_path: str, transform: transforms.Compose):
+    train_dataset = ContrastivePairDatasetMNIST(
+        db_path=db_path,
+        dataset_split="train",
+        transform=transform,
+    )
+    test_dataset = ContrastivePairDatasetMNIST(
+        db_path=db_path,
+        dataset_split="test",
+        transform=transform,
+    )
+
+    train_sampler = BalancedRandomPairBatchSampler(train_dataset)
+    test_sampler = BalancedRandomPairBatchSampler(test_dataset)
+
+    train_dataloader = DataLoader(train_dataset, batch_sampler=train_sampler)
+    test_dataloader = DataLoader(test_dataset, batch_sampler=test_sampler)
+
+    return train_dataloader, test_dataloader
 
 
 class ContrastiveLoss(torch.nn.Module):
@@ -77,11 +102,7 @@ class ContrastiveLoss(torch.nn.Module):
         return torch.pow(x1 - x2, 2).sum(1)
 
 
-def train_embedding_model(
-    train_dataloader: DataLoader,
-    test_dataloader: DataLoader,
-    config: Dict,
-):
+def _train_embedding_model(config: Dict):
     """Train the embedding model using contrastive pairs.
 
     Args:
@@ -89,6 +110,11 @@ def train_embedding_model(
         test_dataloader: DataLoader instance
         config_path: Path to JSON config file containing training parameters.
     """
+    transform = get_transform(name=config["transform"])
+    train_dataloader, test_dataloader = get_dataloader(
+        db_path=config["db_path"], transform=transform
+    )
+
     model = get_embedding_model(
         model_type=config["model_type"],
         embedding_dim=config["embedding_dim"],

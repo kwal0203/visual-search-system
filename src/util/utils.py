@@ -5,7 +5,7 @@ from pathlib import Path
 import json
 
 
-def load_training_config(config_path: Optional[str] = None) -> dict:
+def load_config(config_path: Optional[str] = None) -> dict:
     """Load training configuration from a JSON file.
 
     Args:
