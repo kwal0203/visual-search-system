@@ -34,3 +34,10 @@ def get_images(dataset_split: str = "train"):
     db = SessionLocal()
     images = db.query(Image).filter(Image.dataset_split == dataset_split).all()
     return images
+
+
+def get_test_dataset(dataset_name: str):
+    if dataset_name == "mnist":
+        return get_images(dataset_split="test")
+    else:
+        raise ValueError(f"Dataset {dataset_name} not supported.")

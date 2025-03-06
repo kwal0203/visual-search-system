@@ -6,16 +6,17 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from PIL import Image as PILImage
 from pathlib import Path
+from typing import Dict
 
 import torch
 import os
 
-CONFIG_PATH = Path(__file__).parent / "config.json"
+# CONFIG_PATH = Path(__file__).parent / "config.json"
 
 
-def search_similar_images(query_image: Image):
+def search_similar_images(query_image: Image, config: Dict):
     """Find k most similar images to the query image."""
-    config = load_config(config_path=CONFIG_PATH)
+    # config = load_config(config_path=CONFIG_PATH)
     transform = get_transform(name=config["transform"])
 
     # Generate query embedding

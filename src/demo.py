@@ -75,6 +75,22 @@ def main():
 
     _ = search_similar_images(query_image=query_image)
 
+    from src.evaluation_service.service import evaluate
+
+    import numpy as np
+
+    results = {
+        "relevance": np.array([0, 1, 0, 0, 1]),
+        "k": 5,
+        "n_relevant": 1,
+    }
+
+    print(f"MRR: {evaluate(results, "mrr")}")
+    print(f"Precision@K: {evaluate(results, "precision_at_k")}")
+    print(f"Recall@K: {evaluate(results, "recall_at_k")}")
+    print(f"MAP: {evaluate(results, "mean_average_precision")}")
+    print(f"NDCG@K: {evaluate(results, "ndcg_at_k")}")
+
 
 if __name__ == "__main__":
     main()
