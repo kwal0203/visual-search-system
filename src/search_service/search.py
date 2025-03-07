@@ -1,29 +1,51 @@
 from src.embedding_service.models import get_embedding_model
-from src.util.utils import load_config, get_transform
 from src.index_service.service import load_index
 from src.storage_service.models import Image
+from src.util.utils import get_transform
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from PIL import Image as PILImage
 from pathlib import Path
 from typing import Dict
+import glob
 
 import torch
 import os
 
-# CONFIG_PATH = Path(__file__).parent / "config.json"
+
+def _get_next_result_dir(base_path: str) -> str:
+    """Get the next available numbered result directory, ensuring sequential numbering from 1."""
+    os.makedirs(base_path, exist_ok=True)
+    existing_dirs = [
+        d
+        for d in glob.glob(os.path.join(base_path, "*"))
+        if os.path.isdir(d) and os.path.basename(d).isdigit()
+    ]
+
+    if not existing_dirs:
+        return os.path.join(base_path, "1")
+
+    # Sort directories numerically
+    dir_numbers = sorted([int(os.path.basename(d)) for d in existing_dirs])
+    next_number = dir_numbers[-1] + 1
+    return os.path.join(base_path, str(next_number))
 
 
 def search_similar_images(query_image: Image, config: Dict):
     """Find k most similar images to the query image."""
-    # config = load_config(config_path=CONFIG_PATH)
     transform = get_transform(name=config["transform"])
+
+    # Create a new numbered results directory
+    base_results_dir = Path("/home/kwal0203/results")
+    result_dir = _get_next_result_dir(str(base_results_dir))
+    os.makedirs(result_dir, exist_ok=True)
 
     # Generate query embedding
     with torch.no_grad():
         image = PILImage.open(query_image.file_path)
 
-        image_path = Path("/home/kwal0203/results") / f"query.png"
+        # Save query image in the numbered directory
+        image_path = Path(result_dir) / "query.png"
         image.save(image_path)
 
         image = transform(image).unsqueeze(0).to(config["device"])
@@ -39,9 +61,6 @@ def search_similar_images(query_image: Image, config: Dict):
     # Search in the index
     index = load_index()
     distances, indices = index.search(query_embedding, config["k"])
-
-    print(f"Similar indices: {indices}")
-    print(f"Distances: {distances}")
 
     # Get the corresponding images. Embedding index numbers off by 1 compared with database image ids.
     engine = create_engine(f"sqlite:///{config['db_path']}")
@@ -60,11 +79,10 @@ def search_similar_images(query_image: Image, config: Dict):
                 }
             )
 
-        # save image as .png in /tmp/results using PIL
-        image_path = config["save_dir"].format(image_id=img.image_id)
-        os.makedirs(Path(image_path).parent, exist_ok=True)
-        source_image = PILImage.open(img.file_path)
-        source_image.save(image_path)
+            # Save image in the numbered directory
+            image_path = os.path.join(result_dir, f"result_{img.image_id}.png")
+            source_image = PILImage.open(img.file_path)
+            source_image.save(image_path)
     db.close()
 
     return similar_images

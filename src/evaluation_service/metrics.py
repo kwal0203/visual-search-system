@@ -1,7 +1,9 @@
-from typing import Dict, List, Optional, Union
-
-import numpy as np
 from sklearn.metrics import average_precision_score
+from typing import Dict, List, Optional, Union
+import numpy as np
+import warnings
+
+warnings.simplefilter("ignore")
 
 
 def mean_reciprocal_rank(
@@ -100,6 +102,7 @@ def mean_average_precision(
     map_scores = np.zeros(len(relevance))
     for i, rel in enumerate(relevance):
         map_scores[i] = average_precision_score(rel, np.ones_like(rel))
+        # print(f"  -- BANG: {map_scores[i]}")
     return map_scores
 
 
@@ -146,9 +149,7 @@ def ndcg_at_k(
     return ndcg_scores
 
 
-def click_through_rate(
-    clicks: np.ndarray, impressions: np.ndarray
-) -> Union[float, np.ndarray]:
+def click_through_rate(clicks: List, impressions: List) -> Union[float, np.ndarray]:
     """
     Calculate Click-Through Rate for single or multiple ranking lists.
 
@@ -161,6 +162,8 @@ def click_through_rate(
     Returns:
         CTR score(s)
     """
+    clicks = np.array(clicks)
+    impressions = np.array(impressions)
     if clicks.ndim == 1:
         return np.sum(clicks) / np.sum(impressions)
     return np.sum(clicks, axis=1) / np.sum(impressions, axis=1)
@@ -171,11 +174,9 @@ class RankingMetrics:
 
     def __init__(
         self,
-        relevance: np.ndarray,
+        relevance: List,
         n_relevant: Optional[Union[int, np.ndarray]] = None,
         gains: Optional[Dict[int, float]] = None,
-        model: str = "cnn",
-        dataset: str = "mnist",
     ):
         """
         Initialize RankingMetrics.
@@ -185,12 +186,12 @@ class RankingMetrics:
             n_relevant: Total number of relevant items per query or single value
             gains: Optional mapping of relevance levels to gain values
         """
-        self.relevance = relevance
+        self.relevance = np.array(relevance)
         if n_relevant is None:
             if relevance.ndim == 1:
-                self.n_relevant = np.sum(relevance)
+                self.n_relevant = np.sum(self.relevance)
             else:
-                self.n_relevant = np.sum(relevance, axis=1)
+                self.n_relevant = np.sum(self.relevance, axis=1)
         else:
             self.n_relevant = n_relevant
         self.gains = gains
@@ -210,21 +211,22 @@ class RankingMetrics:
             each score is an array of shape (n_queries,)
         """
         if metrics is None:
-            metrics = ["mrr", "map", "ndcg"]
+            metrics = ["mrr", "precision", "recall", "map", "ndcg"]
 
         results = {}
 
         for metric in metrics:
-            if metric == "mrr":
-                results["mrr"] = mean_reciprocal_rank(self.relevance, k)
-            elif metric == "precision":
-                results[f"precision@{k}"] = precision_at_k(self.relevance, k)
-            elif metric == "recall":
-                results[f"recall@{k}"] = recall_at_k(self.relevance, k, self.n_relevant)
-            elif metric == "map":
+            # if metric == "mrr":
+            #     results["mrr"] = mean_reciprocal_rank(self.relevance, k)
+            # elif metric == "precision":
+            #     results[f"precision@{k}"] = precision_at_k(self.relevance, k)
+            # elif metric == "recall":
+            #     results[f"recall@{k}"] = recall_at_k(self.relevance, k, self.n_relevant)
+            # elif metric == "map":
+            if metric == "map":
                 results["map"] = mean_average_precision(self.relevance, k)
-            elif metric == "ndcg":
-                results[f"ndcg@{k}"] = ndcg_at_k(self.relevance, k, self.gains)
+            # elif metric == "ndcg":
+            #     results[f"ndcg@{k}"] = ndcg_at_k(self.relevance, k, self.gains)
 
         return results
 

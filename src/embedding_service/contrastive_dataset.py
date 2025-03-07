@@ -33,7 +33,6 @@ class ContrastivePairDatasetMNIST(Dataset):
 
             # Identify unique classes
             self.classes = np.unique(self.targets)
-            print(self.classes)
 
             # Create mapping: class -> list of indices
             self.class_indices = {}

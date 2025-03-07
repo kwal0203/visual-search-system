@@ -3,7 +3,9 @@ from src.index_service.service import build_index
 from PIL import Image as PILImage
 from pathlib import Path
 from src.embedding_service.service import train_embedding_model
-from src.search_service.search import search_similar_images
+
+# from src.search_service.search import search_similar_images
+from src.search_service.service import search_index
 
 import matplotlib.pyplot as plt
 import torch
@@ -70,26 +72,16 @@ def main():
         .order_by(func.random())
         .first()
     )
-    print(f"Query image: {query_image.digit_label}")
     db.close()
 
-    _ = search_similar_images(query_image=query_image)
+    _ = search_index(query_image=query_image)
 
     from src.evaluation_service.service import evaluate
 
-    import numpy as np
-
-    results = {
-        "relevance": np.array([0, 1, 0, 0, 1]),
-        "k": 5,
-        "n_relevant": 1,
-    }
-
-    print(f"MRR: {evaluate(results, "mrr")}")
-    print(f"Precision@K: {evaluate(results, "precision_at_k")}")
-    print(f"Recall@K: {evaluate(results, "recall_at_k")}")
-    print(f"MAP: {evaluate(results, "mean_average_precision")}")
-    print(f"NDCG@K: {evaluate(results, "ndcg_at_k")}")
+    metrics_dict_avg = evaluate()
+    print("Metric averages across test dataset...")
+    for key, value in metrics_dict_avg.items():
+        print(f"{key}: {value:.4f}")
 
 
 if __name__ == "__main__":

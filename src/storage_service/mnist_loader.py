@@ -88,7 +88,6 @@ def load_mnist(db_path: str, save_dir: str, raw_dir: str):
 
         print("MNIST dataset loaded successfully")
     finally:
-        # Always close the session when done
         db.close()
 
 
