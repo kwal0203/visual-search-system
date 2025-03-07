@@ -14,8 +14,7 @@ def evaluate(method: List = None):
     relevance_scores = []
     idx = 0
     bank = 0
-    for image in test_dataset[:500]:
-        print(f"lad {idx}")
+    for image in test_dataset:
         similar_images = search_index(image)
         image_relevance = []
         for i in similar_images:
@@ -28,7 +27,7 @@ def evaluate(method: List = None):
         if x == 0:
             bank += 1
         idx += 1
-    print(f"Bank: {bank}")
+
     metrics = RankingMetrics(
         relevance=relevance_scores,
         n_relevant=config["n_relevant"],

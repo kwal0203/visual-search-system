@@ -216,17 +216,16 @@ class RankingMetrics:
         results = {}
 
         for metric in metrics:
-            # if metric == "mrr":
-            #     results["mrr"] = mean_reciprocal_rank(self.relevance, k)
-            # elif metric == "precision":
-            #     results[f"precision@{k}"] = precision_at_k(self.relevance, k)
-            # elif metric == "recall":
-            #     results[f"recall@{k}"] = recall_at_k(self.relevance, k, self.n_relevant)
-            # elif metric == "map":
-            if metric == "map":
+            if metric == "mrr":
+                results["mrr"] = mean_reciprocal_rank(self.relevance, k)
+            elif metric == "precision":
+                results[f"precision@{k}"] = precision_at_k(self.relevance, k)
+            elif metric == "recall":
+                results[f"recall@{k}"] = recall_at_k(self.relevance, k, self.n_relevant)
+            elif metric == "map":
                 results["map"] = mean_average_precision(self.relevance, k)
-            # elif metric == "ndcg":
-            #     results[f"ndcg@{k}"] = ndcg_at_k(self.relevance, k, self.gains)
+            else:
+                raise ValueError(f"Metric {metric} not supported")
 
         return results
 
